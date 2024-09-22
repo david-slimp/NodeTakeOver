@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<!--
+Title: rock808s Node Takeover
+Description: A strategy game where players take over nodes on a gameboard. The game includes walls that block paths, and nodes generate units over time.
+Author: David Slimp - rock808@David-Slimp.com
+
+Changelog:
+- 2024-07-10: 0.0.1 - Initial version: 10 Nodes only. Human vs Computer. Nodes grow slowly, each click/drag sends half units.
+- 2024-07-10: 0.0.2 - Nodes constantly send. Single-click a node to stop sending.
+- 2024-07-10: 0.0.3 - 14sec delay for computer to move after ANYONE captures a new node (this is not great). Nodes no longer overlap. Speed is faster overall.
+- 2024-07-11: 0.0.4 - Better animation/flow for units moving. Computer only sends 1 unit at a time. Popup "win" replaced with "restart" button at end of game. Gold score added for each win. Some generationSpeed settings off a bit make it hard for computer to attack against vacant nodes. only 3sec delay for computer when taking new nodes. Some strange anomoly/bug that causes generationSpeed to increase a little after each game.
+- 2024-07-11: 0.0.5 - Added code to play on phone (touchsense and screen dimensions). Split some variables in to different vars for human and computer so they can be set differently.
+- 2024-07-12: 0.0.6 - Added walls. Added a "chain" which connects all nodes to ensure they are all reachable. More tweaks to gameplay vars. Set min distance between human/computer start nodes. Added version and changelog info.
+- 2024-08-19: 0.0.7 - Added keyboard controls: P/SPACE to pause, M to mute, H for help, R to restart. Implemented pause functionality with overlay. Added mute/unmute button and functionality. Created help popup window.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rock808's Node Takeover</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #707070;
+        font-family: Arial, sans-serif;
+      }
+      #gameCanvas {
+        border: 1px solid #000;
+        background-color: #dde;
+      }
+      #gameStatus {
+        text-align: center;
+        width: 100%;
+        font-size: 24px;
+        color: #fff;
+      }
+      #statusText {
+        font-weight: bold;
+      }
+      #playerGold,
+      #computerGold {
+        font-size: 16px;
+        display: block;
+      }
+      #restartButton {
+        display: none;
+        margin-top: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      #titleSection {
+        text-align: center;
+        margin-top: 20px;
+      }
+      #titleSection h1 {
+        margin: 0;
+        font-size: 36px;
+        color: #ffffff;
+      }
+      #titleSection h2 {
+        margin: 0;
+        font-size: 20px;
+        color: #dddddd;
+      }
+      #statusBar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        width: 100%;
+        height: 30px;
+        background-color: #333;
+        margin-bottom: 10px;
+      }
+      #muteButton {
+        width: 30px;
+        height: 30px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+      }
+      .overlay-text {
+        font-size: 48px;
+        color: white;
+        font-weight: bold;
+      }
+      .help-window {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 80%;
+        max-height: 80%;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="titleSection">
+      <h1>rock808's Node Takeover</h1>
+      <h2 id="versionNumber"></h2>
+    </div>
+    <div id="gameStatus">
+      <span id="statusText"></span>
+      <span id="playerGold"></span>
+      <span id="computerGold"></span>
+      <button id="restartButton" onclick="initGame()">Restart</button>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="statusBar">
+      <div id="muteButton"></div>
+    </div>
+    <script>
+      const VERBOSE = 1; // 0=off 1=normal 2=debug
+      VERBOSE >= 2 && alert("Script loaded"); // Debug alert
+      // Game constants
+      const MAX_UNITS = 100;
+      const UNCONTROLLED_MAX_UNITS = Math.floor(MAX_UNITS * 0.75);
+      const PLAYER_START_UNITS = 50;
+      const COMPUTER_START_UNITS = 80;
+      const UNCONTROLLED_START_UNITS = 20;
+      const PLAYER_COLOR = "#905090";
+      const COMPUTER_COLOR = "#e74c3c";
+      const UNCONTROLLED_COLOR = "#95a5a6";
+      const TOTAL_NODES = 20;
+      const MIN_DISTANCE = 70; // Minimum distance between nodes
+      const GAME_SPEED = 1; // 1=normal 2=faster
+      const VERSION = "0.0.6"; // code version number
+      document.getElementById("versionNumber").innerText =
+        "Version: " + VERSION;
+
+      // Player specific variables
+      const PLAYER_UNIT_GENERATION_SPEED = 6; // Units generated per second for player
+      const COMPUTER_UNIT_GENERATION_SPEED = 6; // Units generated per second for the computer
+      const UNCONTROLLED_UNIT_GENERATION_SPEED = 3; // Uncontrolled bases generate units
+      const PLAYER_UNIT_SPEED = 50; // Speed at which player's units travel
+      const COMPUTER_UNIT_SPEED = 50; // Speed at which computer's units travel
+      const PLAYER_UNIT_DISPATCH_SPEED = 6; // Units dispatched per second for player
+      const COMPUTER_UNIT_DISPATCH_SPEED = 6; // Units dispatched per second for computer
+      const COMPUTER_DELAY_NEW_BASE = 3000; // 3 seconds in milliseconds
+      const WALL_COLOR = "#555"; // Wall color
+      const WALL_WIDTH = 5; // Wall width
+      const WALL_COUNT = 52; // Number of walls
+
+      // Game variables
+      let gameBoard = [];
+      let walls = [];
+      let canvas;
+      let ctx;
+      let selectedNode = null;
+      let attackAnimations = [];
+      let computerCanAct = false; // Tracks if the computer can act, start off with little delay
+      let computerLastCaptureTime = Date.now(); // Tracks the last capture time
+      let playerGold = 0;
+      let computerGold = 0;
+      let gameActive = true; // Tracks if the game is active
+      let canvasWidth, canvasHeight, nodeRadius, wallMaxLength;
+      let unitGenerationInterval, continuousFlowInterval, gameLoopId;
+
+      // New variables
+      let isPaused = false;
+      let isMuted = false;
+
+      // Detect screen size and set gameboard dimensions
+      function setGameboardDimensions() {
+        if (window.innerWidth < 600) {
+          // Assume it's a phone if width is less than 600px
+          canvasWidth = window.innerWidth - 20;
+          canvasHeight = window.innerHeight - 100;
+          nodeRadius = 20; // Smaller radius for nodes on phone
+        } else {
+          canvasWidth = 800;
+          canvasHeight = 600;
+          nodeRadius = 30; // Default radius for nodes on desktop
+        }
+        VERBOSE >= 2 &&
+          alert(`Canvas dimensions set: ${canvasWidth}x${canvasHeight}`); // Debug alert
+
+        wallMaxLength = Math.min(canvasWidth, canvasHeight) * 0.4; // Max wall length
+      }
+
+      // Initialize the game
+      function initGame() {
+        VERBOSE >= 2 && alert("starting initGame"); // Debug alert
+
+        // Clear previous intervals
+        clearInterval(unitGenerationInterval);
+        clearInterval(continuousFlowInterval);
+        cancelAnimationFrame(gameLoopId);
+
+        setGameboardDimensions();
+        canvas = document.getElementById("gameCanvas");
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        ctx = canvas.getContext("2d");
+        VERBOSE >= 2 && alert("Canvas initialized"); // Debug alert
+
+        document.getElementById("statusText").innerText = "";
+        document.getElementById("playerGold").innerText = "";
+        document.getElementById("computerGold").innerText = "";
+        document.getElementById("restartButton").style.display = "none";
+        attackAnimations = [];
+        gameActive = true;
+
+        gameBoard = initializeBoard(TOTAL_NODES);
+        const playerNode = initializeRandomNode(
+          PLAYER_COLOR,
+          PLAYER_START_UNITS
+        );
+        const computerNode = initializeRandomNode(
+          COMPUTER_COLOR,
+          COMPUTER_START_UNITS,
+          playerNode
+        );
+        initializeUncontrolledNodes(gameBoard, playerNode, computerNode);
+        createInvisibleChain();
+        walls = generateWalls(WALL_COUNT);
+
+        canvas.removeEventListener("mousedown", handlePointerDown);
+        canvas.removeEventListener("mouseup", handlePointerUp);
+        canvas.removeEventListener("touchstart", handlePointerDown);
+        canvas.removeEventListener("touchend", handlePointerUp);
+
+        canvas.addEventListener("mousedown", handlePointerDown);
+        canvas.addEventListener("mouseup", handlePointerUp);
+
+        // Touch event listeners for mobile devices
+        canvas.addEventListener("touchstart", handlePointerDown, {
+          passive: false,
+        });
+        canvas.addEventListener("touchend", handlePointerUp, {
+          passive: false,
+        });
+
+        VERBOSE >= 2 && alert("Event listeners added"); // Debug alert
+
+        gameLoopId = requestAnimationFrame(gameLoop);
+        unitGenerationInterval = setInterval(
+          generateUnitsForControlledNodes,
+          1000 / PLAYER_UNIT_GENERATION_SPEED
+        );
+        continuousFlowInterval = setInterval(
+          handleContinuousFlow,
+          1000 / PLAYER_UNIT_DISPATCH_SPEED
+        );
+
+        // Initialize mute button
+        updateMuteButton();
+        document.getElementById("muteButton").addEventListener("click", toggleMute);
+
+        VERBOSE >= 2 && alert("Game initialized"); // Debug alert
+      }
+
+      function initializeBoard(totalNodes) {
+        const nodes = [];
+        while (nodes.length < totalNodes) {
+          const newNode = createNode();
+          if (isNodePositionValid(newNode, nodes)) {
+            nodes.push(newNode);
+          }
+        }
+        return nodes;
+      }
+
+      function isNodePositionValid(newNode, nodes) {
+        return nodes.every(
+          (node) =>
+            Math.sqrt(
+              Math.pow(newNode.x - node.x, 2) + Math.pow(newNode.y - node.y, 2)
+            ) >= MIN_DISTANCE
+        );
+      }
+
+      function createNode() {
+        return {
+          x: Math.random() * (canvasWidth - nodeRadius * 2) + nodeRadius,
+          y: Math.random() * (canvasHeight - nodeRadius * 2) + nodeRadius,
+          units: UNCONTROLLED_START_UNITS,
+          color: UNCONTROLLED_COLOR,
+          owner: null,
+          destination: null,
+        };
+      }
+
+      function initializeRandomNode(color, units, playerNode = null) {
+        let node;
+        do {
+          node = randomNode(gameBoard);
+        } while (playerNode && distanceBetweenNodes(node, playerNode) < 400);
+
+        node.units = units;
+        node.color = color;
+        node.owner = color === PLAYER_COLOR ? "player" : "computer";
+        return node;
+      }
+
+      function distanceBetweenNodes(node1, node2) {
+        const dx = node1.x - node2.x;
+        const dy = node1.y - node2.y;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function randomNode(board) {
+        return board[Math.floor(Math.random() * board.length)];
+      }
+
+      function initializeUncontrolledNodes(board, playerNode, computerNode) {
+        board.forEach((node) => {
+          if (node !== playerNode && node !== computerNode) {
+            node.units = UNCONTROLLED_START_UNITS;
+            node.color = UNCONTROLLED_COLOR;
+            node.owner = null;
+            node.maxUnits = UNCONTROLLED_MAX_UNITS;
+            node.generationSpeed = UNCONTROLLED_UNIT_GENERATION_SPEED;
+          } else {
+            node.maxUnits = MAX_UNITS;
+            node.generationSpeed =
+              node.color === PLAYER_COLOR
+                ? PLAYER_UNIT_GENERATION_SPEED
+                : COMPUTER_UNIT_GENERATION_SPEED;
+          }
+        });
+      }
+
+      function createInvisibleChain() {
+        // Reset the 'next' property for all nodes
+        gameBoard.forEach((node) => (node.next = null));
+
+        // Start from the first node in the list
+        const nodes = [...gameBoard];
+        const chain = [];
+        let currentNode = nodes[0];
+        chain.push(currentNode);
+
+        while (chain.length < nodes.length) {
+          let nearestNode = null;
+          let nearestDistance = Infinity;
+
+          nodes.forEach((node) => {
+            if (!chain.includes(node)) {
+              const distance = distanceBetweenNodes(currentNode, node);
+              if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestNode = node;
+              }
+            }
+          });
+
+          if (nearestNode) {
+            currentNode.next = nearestNode;
+            chain.push(nearestNode);
+            currentNode = nearestNode;
+          }
+        }
+      }
+
+      function drawChainLine() {
+        const nodes = gameBoard.filter((node) => node.next);
+        nodes.forEach((node) => {
+          ctx.beginPath();
+          ctx.moveTo(node.x, node.y);
+          ctx.lineTo(node.next.x, node.next.y);
+          ctx.strokeStyle = "#dde"; // canvas bgcolor is #dde otherwise use yellow
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+      }
+
+      function generateWalls(count) {
+        const walls = [];
+        for (let i = 0; i < count; i++) {
+          let wall;
+          do {
+            wall = createWall();
+          } while (!isWallPositionValid(wall, walls));
+          walls.push(wall);
+        }
+        return walls;
+      }
+
+      function createWall() {
+        const length =
+          Math.random() * (wallMaxLength * 0.3) + wallMaxLength * 0.1;
+        const angle = Math.random() * Math.PI * 2;
+        const x1 = Math.random() * canvasWidth;
+        const y1 = Math.random() * canvasHeight;
+        const x2 = x1 + length * Math.cos(angle);
+        const y2 = y1 + length * Math.sin(angle);
+        return { x1, y1, x2, y2 };
+      }
+
+      function isWallPositionValid(wall, walls) {
+        if (
+          !walls.every(
+            (w) =>
+              !linesIntersect(
+                w.x1,
+                w.y1,
+                w.x2,
+                w.y2,
+                wall.x1,
+                wall.y1,
+                wall.x2,
+                wall.y2
+              )
+          )
+        ) {
+          return false;
+        }
+        if (
+          !gameBoard.every(
+            (node) =>
+              !lineIntersectsCircle(
+                wall.x1,
+                wall.y1,
+                wall.x2,
+                wall.y2,
+                node.x,
+                node.y,
+                nodeRadius
+              )
+          )
+        ) {
+          return false;
+        }
+        if (
+          !gameBoard.every(
+            (node) =>
+              !node.next ||
+              !linesIntersect(
+                wall.x1,
+                wall.y1,
+                wall.x2,
+                wall.y2,
+                node.x,
+                node.y,
+                node.next.x,
+                node.next.y
+              )
+          )
+        ) {
+          return false;
+        }
+        return true;
+      }
+
+      function linesIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+        const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+        if (denom === 0) return false;
+        const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+        const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+        return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+      }
+
+      function lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const fx = x1 - cx;
+        const fy = y1 - cy;
+        const a = dx * dx + dy * dy;
+        const b = 2 * (fx * dx + fy * dy);
+        const c = fx * fx + fy * fy - r * r;
+        let discriminant = b * b - 4 * a * c;
+        if (discriminant < 0) {
+          return false;
+        }
+        discriminant = Math.sqrt(discriminant);
+        const t1 = (-b - discriminant) / (2 * a);
+        const t2 = (-b + discriminant) / (2 * a);
+        return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
+      }
+
+      function gameLoop() {
+        if (gameActive && !isPaused) {
+          updateGameState();
+          gameLoopId = requestAnimationFrame(gameLoop);
+        }
+      }
+
+      function generateUnitsForControlledNodes() {
+        if (!gameActive) return;
+        gameBoard.forEach((node) => {
+          if (node.units < node.maxUnits) {
+            node.units += node.generationSpeed / 10; // Divide by 10 to match units generated per second
+          }
+        });
+      }
+
+      function handlePointerDown(event) {
+        event.preventDefault(); // Prevent scrolling when touching the canvas
+        const rect = canvas.getBoundingClientRect();
+        const x = (event.clientX || event.touches[0].clientX) - rect.left;
+        const y = (event.clientY || event.touches[0].clientY) - rect.top;
+        selectedNode = getNodeAt(x, y);
+      }
+
+      function handlePointerUp(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x =
+          (event.clientX || event.changedTouches[0].clientX) - rect.left;
+        const y = (event.clientY || event.changedTouches[0].clientY) - rect.top;
+        if (selectedNode && selectedNode.owner === "player") {
+          const targetNode = getNodeAt(x, y);
+          if (
+            targetNode &&
+            targetNode !== selectedNode &&
+            !isPathBlocked(selectedNode, targetNode)
+          ) {
+            selectedNode.destination = targetNode;
+          } else {
+            selectedNode.destination = null; // Reset destination if clicking on the same node
+          }
+        }
+        selectedNode = null;
+      }
+
+      function handleContinuousFlow() {
+        if (!gameActive) return;
+
+        // Handle computer delay
+        if (Date.now() - computerLastCaptureTime >= COMPUTER_DELAY_NEW_BASE) {
+          computerCanAct = true;
+        }
+
+        gameBoard.forEach((node) => {
+          if (node.owner === "player" && node.destination && node.units > 1) {
+            sendUnits(node, node.destination, PLAYER_UNIT_SPEED);
+          } else if (
+            node.owner === "computer" &&
+            computerCanAct &&
+            node.units > 10
+          ) {
+            const targetNode = findTargetNode(node);
+            if (targetNode && !isPathBlocked(node, targetNode)) {
+              node.destination = targetNode;
+              sendUnits(node, targetNode, COMPUTER_UNIT_SPEED);
+            }
+          }
+        });
+      }
+
+      function sendUnits(fromNode, toNode, unitSpeed) {
+        const travelTime = calculateTravelTime(fromNode, toNode, unitSpeed);
+        fromNode.units -= 1;
+
+        const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x);
+        const startX = fromNode.x + nodeRadius * Math.cos(angle);
+        const startY = fromNode.y + nodeRadius * Math.sin(angle);
+
+        const animation = {
+          fromNode,
+          toNode,
+          units: 1,
+          color: fromNode.color,
+          startX,
+          startY,
+          progress: 0,
+          duration: travelTime,
+        };
+        attackAnimations.push(animation);
+
+        setTimeout(() => {
+          resolveBattle(toNode, fromNode.owner);
+          attackAnimations = attackAnimations.filter((a) => a !== animation);
+        }, travelTime);
+      }
+
+      function calculateTravelTime(fromNode, toNode, unitSpeed) {
+        const distance =
+          Math.sqrt(
+            Math.pow(toNode.x - fromNode.x, 2) +
+              Math.pow(toNode.y - fromNode.y, 2)
+          ) -
+          nodeRadius * 2;
+        const maxDistance = Math.sqrt(
+          Math.pow(canvasWidth, 2) + Math.pow(canvasHeight, 2)
+        );
+        return (distance / maxDistance) * 1000 * (1000 / unitSpeed);
+      }
+
+      function resolveBattle(toNode, attackerOwner) {
+        if (toNode.owner === attackerOwner) {
+          toNode.units = Math.min(toNode.units + 1, toNode.maxUnits);
+        } else {
+          toNode.units -= 1;
+          if (toNode.units <= 0) {
+            toNode.units = 1;
+            toNode.owner = attackerOwner;
+            toNode.color =
+              attackerOwner === "player" ? PLAYER_COLOR : COMPUTER_COLOR;
+
+            // Increase the generationSpeed by 0.1 and round to one decimal place
+            toNode.generationSpeed =
+              Math.round(toNode.generationSpeed * 10 + 3) / 10; // make sure there's only 1 place after decimal
+
+            toNode.destination = null;
+            if (attackerOwner === "computer") {
+              computerCanAct = false;
+              computerLastCaptureTime = Date.now();
+            }
+          }
+        }
+      }
+
+      function findTargetNode(node) {
+        let nearestEnemy = null;
+        let minDistance = Infinity;
+        gameBoard.forEach((potentialTarget) => {
+          if (potentialTarget.owner !== node.owner) {
+            const distance = Math.sqrt(
+              Math.pow(potentialTarget.x - node.x, 2) +
+                Math.pow(potentialTarget.y - node.y, 2)
+            );
+            if (distance < minDistance) {
+              minDistance = distance;
+              nearestEnemy = potentialTarget;
+            }
+          }
+        });
+        return nearestEnemy;
+      }
+
+      function updateGameState() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawWalls();
+        drawChainLine(); // if we want to SEE how all the nodes can be accessed
+
+        attackAnimations.forEach((animation) => {
+          animation.progress += 16 / animation.duration; // Assume 60 FPS
+          if (animation.progress > 1) animation.progress = 1;
+
+          const startX = animation.startX;
+          const startY = animation.startY;
+          const endX =
+            animation.toNode.x -
+            nodeRadius *
+              Math.cos(
+                Math.atan2(
+                  animation.toNode.y - startY,
+                  animation.toNode.x - startX
+                )
+              );
+          const endY =
+            animation.toNode.y -
+            nodeRadius *
+              Math.sin(
+                Math.atan2(
+                  animation.toNode.y - startY,
+                  animation.toNode.x - startX
+                )
+              );
+
+          const currentX = startX + (endX - startX) * animation.progress;
+          const currentY = startY + (endY - startY) * animation.progress;
+
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(currentX, currentY);
+          ctx.strokeStyle = animation.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(currentX, currentY, 5, 0, Math.PI * 2);
+          ctx.fillStyle = animation.color;
+          ctx.fill();
+        });
+
+        gameBoard.forEach(drawNode);
+
+        checkGameOver();
+      }
+
+      function drawWalls() {
+        walls.forEach((wall) => {
+          ctx.beginPath();
+          ctx.moveTo(wall.x1, wall.y1);
+          ctx.lineTo(wall.x2, wall.y2);
+          ctx.strokeStyle = WALL_COLOR;
+          ctx.lineWidth = WALL_WIDTH;
+          ctx.stroke();
+        });
+      }
+
+      function drawNode(node) {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = node.color;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#000";
+        ctx.font = "16px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(Math.floor(node.units), node.x, node.y);
+
+        // Draw the generation speed below the units
+        ctx.font = "10px Arial";
+        ctx.fillText(node.generationSpeed, node.x, node.y + 14); // Adjusted y-position
+      }
+
+      function getNodeAt(x, y) {
+        return gameBoard.find(
+          (node) =>
+            Math.sqrt(Math.pow(x - node.x, 2) + Math.pow(y - node.y, 2)) <=
+            nodeRadius
+        );
+      }
+
+      function checkGameOver() {
+        const playerNodes = gameBoard.filter((node) => node.owner === "player");
+        const computerNodes = gameBoard.filter(
+          (node) => node.owner === "computer"
+        );
+
+        if (playerNodes.length === 0) {
+          computerGold += 100;
+          displayGameOver("Computer wins!");
+        } else if (computerNodes.length === 0) {
+          playerGold += 100;
+          displayGameOver("Congratulations! You win!");
+        }
+      }
+
+      function displayGameOver(message) {
+        gameActive = false;
+        document.getElementById("statusText").innerText = message;
+        document.getElementById(
+          "playerGold"
+        ).innerText = `Player Gold: ${playerGold}`;
+        document.getElementById(
+          "computerGold"
+        ).innerText = `Computer Gold: ${computerGold}`;
+        document.getElementById("restartButton").style.display = "inline-block";
+        attackAnimations = [];
+      }
+
+      function isPathBlocked(node1, node2) {
+        return walls.some((wall) =>
+          linesIntersect(
+            wall.x1,
+            wall.y1,
+            wall.x2,
+            wall.y2,
+            node1.x,
+            node1.y,
+            node2.x,
+            node2.y
+          )
+        );
+      }
+
+      // Function to toggle pause
+      function togglePause() {
+        isPaused = !isPaused;
+        if (isPaused) {
+          clearInterval(unitGenerationInterval);
+          clearInterval(continuousFlowInterval);
+          cancelAnimationFrame(gameLoopId);
+          showOverlay("PAUSED");
+        } else {
+          unitGenerationInterval = setInterval(generateUnitsForControlledNodes, 1000 / PLAYER_UNIT_GENERATION_SPEED);
+          continuousFlowInterval = setInterval(handleContinuousFlow, 1000 / PLAYER_UNIT_DISPATCH_SPEED);
+          gameLoopId = requestAnimationFrame(gameLoop);
+          hideOverlay();
+        }
+      }
+
+      // Function to toggle mute
+      function toggleMute() {
+        isMuted = !isMuted;
+        updateMuteButton();
+        // Add actual mute functionality here when you implement sound
+      }
+
+      // Function to update mute button appearance
+      function updateMuteButton() {
+        const muteButton = document.getElementById("muteButton");
+        muteButton.style.backgroundImage = isMuted
+          ? "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"white\"><path d=\"M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z\"/></svg>')"
+          : "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"white\"><path d=\"M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z\"/></svg>')";
+      }
+
+      // Function to show overlay
+      function showOverlay(text) {
+        const overlay = document.createElement("div");
+        overlay.className = "overlay";
+        overlay.innerHTML = `<div class="overlay-text">${text}</div>`;
+        document.body.appendChild(overlay);
+      }
+
+      // Function to hide overlay
+      function hideOverlay() {
+        const overlay = document.querySelector(".overlay");
+        if (overlay) {
+          overlay.remove();
+        }
+      }
+
+      // Function to show help
+      function showHelp() {
+        isPaused = true;
+        clearInterval(unitGenerationInterval);
+        clearInterval(continuousFlowInterval);
+        cancelAnimationFrame(gameLoopId);
+
+        const helpWindow = document.createElement("div");
+        helpWindow.className = "overlay";
+        helpWindow.innerHTML = `
+          <div class="help-window">
+            <h2>Help</h2>
+            <p>Keyboard Commands:</p>
+            <ul>
+              <li>P or SPACE: Pause/Resume game</li>
+              <li>M: Mute/Unmute</li>
+              <li>H: Show this help window</li>
+              <li>R: Restart game</li>
+            </ul>
+            <p>Drag purple nodes to other nodes to send units.</p>
+            <button onclick="hideHelp()">Close</button>
+          </div>
+        `;
+        document.body.appendChild(helpWindow);
+      }
+
+      // Function to hide help
+      function hideHelp() {
+        hideOverlay();
+        isPaused = false;
+        unitGenerationInterval = setInterval(generateUnitsForControlledNodes, 1000 / PLAYER_UNIT_GENERATION_SPEED);
+        continuousFlowInterval = setInterval(handleContinuousFlow, 1000 / PLAYER_UNIT_DISPATCH_SPEED);
+        gameLoopId = requestAnimationFrame(gameLoop);
+      }
+
+      // Add event listener for keyboard commands
+      document.addEventListener("keydown", (event) => {
+        switch (event.key.toLowerCase()) {
+          case "p":
+          case " ":
+            togglePause();
+            break;
+          case "m":
+            toggleMute();
+            break;
+          case "h":
+            showHelp();
+            break;
+          case "r":
+            initGame();
+            break;
+        }
+      });
+
+      // Start the game
+      initGame();
+    </script>
+  </body>
+</html>
