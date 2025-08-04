@@ -7,6 +7,10 @@
 - Made the restart button visible immediately when the game loads
 - Added basic ESLint configuration to fix pre-commit hook issues
 
+### Documentation
+
+- Updated README.md with detailed game instructions, features, and setup guide
+
 ## [0.2.0] - 2025-04-15
 
 ### Changed
