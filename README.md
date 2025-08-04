@@ -31,6 +31,10 @@ A strategic territory control game where players compete to take over nodes on a
 
 2. Open `index.html` in your web browser to start playing!
 
+## 🌐 Play Online
+
+You can play the game online at: https://rock808.com/games/NodeTakeOver/
+
 ## 🎯 How to Play
 
 1. **Objective**: Capture all enemy nodes on the board.

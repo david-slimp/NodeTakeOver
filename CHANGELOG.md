@@ -10,6 +10,7 @@
 ### Documentation
 
 - Updated README.md with detailed game instructions, features, and setup guide
+- Added link to online playable version at rock808.com
 
 ## [0.2.0] - 2025-04-15
 
