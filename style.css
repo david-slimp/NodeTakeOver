@@ -1,0 +1,94 @@
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #707070;
+        font-family: Arial, sans-serif;
+      }
+      #gameCanvas {
+        border: 1px solid #000;
+        background-color: #dde;
+      }
+      #gameStatus {
+        text-align: center;
+        width: 100%;
+        font-size: 24px;
+        color: #fff;
+      }
+      #statusText {
+        font-weight: bold;
+      }
+      #playerGold,
+      #computerGold {
+        font-size: 16px;
+        display: block;
+      }
+      #restartButton {
+        display: none;
+        margin-top: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      #titleSection {
+        text-align: center;
+        margin-top: 20px;
+      }
+      #titleSection h1 {
+        margin: 0;
+        font-size: 36px;
+        color: #ffffff;
+      }
+      #titleSection h2 {
+        margin: 5px 0 15px 0;
+        font-size: 20px;
+        color: #dddddd;
+        font-weight: normal;
+      }
+      #statusBar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        width: 100%;
+        height: 30px;
+        background-color: #333;
+        margin-bottom: 10px;
+      }
+      #muteButton {
+        width: 30px;
+        height: 30px;
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+      }
+      .overlay-text {
+        font-size: 48px;
+        color: white;
+        font-weight: bold;
+      }
+      .help-window {
+        background-color: white;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 80%;
+        max-height: 80%;
+        overflow-y: auto;
+      }

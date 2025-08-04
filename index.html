@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<!--
+Title: rock808s Node Takeover
+Description: A strategy game where players take over nodes on a gameboard. The game includes walls that block paths, and nodes generate units over time.
+Author: David Slimp - rock808@David-Slimp.com
+
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rock808's Node Takeover</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div id="titleSection">
+      <h1>rock808's Node Takeover</h1>
+      <h2 id="versionNumber"></h2>
+      <label for="seedInput">Seed:</label>
+      <input type="number" id="seedInput" value="1234" placeholder="Enter seed">
+      <button id="restartButton">Restart</button>
+    </div>
+    <div id="gameStatus">
+      <span id="statusText"></span>
+      <span id="playerGold"></span>
+      <span id="computerGold"></span>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="statusBar">
+      <div id="muteButton"></div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+
+  </body>
+</html>
+
+
+
