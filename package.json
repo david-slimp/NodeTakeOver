@@ -5,17 +5,21 @@
     "main": "main.js",
     "scripts": {
         "test": "jest",
+        "smoke-test": "node smoke-test.js",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "format": "prettier --write .",
+        "test:browser": "node browser-test.js",
+        "format": "prettier --write \"**/*.{js,ts,json,md,html,css}\"",
         "format:check": "prettier --check .",
-        "lint": "eslint . --ext .js --config eslint.config.cjs",
-        "lint:fix": "eslint . --ext .js --fix --config eslint.config.cjs",
+        "lint": "eslint . --ext .js,.ts --config eslint.config.cjs",
+        "lint:fix": "eslint . --ext .js,.ts --fix --config eslint.config.cjs",
         "prepare": "husky install",
         "clean": "rm -rf dist",
-        "prebuild": "npm run clean",
-        "build": "mkdir -p dist && cp -r index.html main.js game.js config.js node.js wall.js style.css screenshot.png README.md CHANGELOG.md LICENSE dist/ && (cp -r assets/ dist/ 2>/dev/null || true) && cp -n .gitignore dist/ 2>/dev/null || true",
-        "postbuild": "echo '✅ Build complete! The dist/ directory is ready for deployment.' && echo '📁 Contents of dist/:' && ls -la dist/"
+        "prebuild": "npm run clean && tsc",
+        "build": "mkdir -p dist && tsc && cp -r src/*.js dist/ 2>/dev/null || true && cp -r src/types dist/ 2>/dev/null || true && cp -r index.html style.css screenshot.png README.md CHANGELOG.md LICENSE dist/ && cp main.js dist/ 2>/dev/null || true && (cp -r assets/ dist/ 2>/dev/null || true) && cp -n .gitignore dist/ 2>/dev/null || true && node fix-imports.js",
+        "postbuild": "echo '✅ Build complete! The dist/ directory is ready for deployment.' && echo '📁 Contents of dist/:' && ls -la dist/",
+        "dev": "npm run build && echo 'Current working directory:' && pwd && echo 'Starting server from:' && (cd dist && pwd) && python3 -m http.server 8000 --directory dist",
+        "start": "npm run dev"
     },
     "repository": {
         "type": "git",
@@ -30,6 +34,7 @@
     "homepage": "https://github.com/david-slimp/NodeTakeOver#readme",
     "devDependencies": {
         "@babel/core": "^7.24.0",
+        "@babel/plugin-transform-runtime": "^7.28.0",
         "@babel/preset-env": "^7.24.0",
         "@babel/preset-typescript": "^7.27.1",
         "@eslint/js": "^9.32.0",
@@ -52,6 +57,7 @@
         "jest-environment-jsdom": "^29.7.0",
         "lint-staged": "^16.1.4",
         "prettier": "^3.6.2",
+        "puppeteer": "^24.15.0",
         "typescript": "^5.9.2"
     },
     "lint-staged": {

@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for NodeTakeOver/main.js</title>
+    <title>Code coverage report for NodeTakeOver/test-config.js</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../prettify.css" />
     <link rel="stylesheet" href="../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../index.html">All files</a> / <a href="index.html">NodeTakeOver</a> main.js</h1>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">NodeTakeOver</a> test-config.js</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>0/21</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/5</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/14</span>
+                <span class='fraction'>0/19</span>
             </div>
         
             
@@ -100,37 +100,19 @@
 <a name='L35'></a><a href='#L35'>35</a>
 <a name='L36'></a><a href='#L36'>36</a>
 <a name='L37'></a><a href='#L37'>37</a>
-<a name='L38'></a><a href='#L38'>38</a>
-<a name='L39'></a><a href='#L39'>39</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L38'></a><a href='#L38'>38</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -139,44 +121,59 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// main.js
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// Test script to verify the config is working correctly
+import { cfg, rngInstance, seededRandomGenerator } from './config.js';
 &nbsp;
-import {Game} from './game.js';
-import {cfg} from './config.js';
+// Test 1: Check if config is loaded
+<span class="cstat-no" title="statement not covered" >console.log('=== Config Test ===');</span>
+<span class="cstat-no" title="statement not covered" >console.log('Config version:', cfg.VERSION);</span>
+<span class="cstat-no" title="statement not covered" >console.log('Player color:', cfg.PLAYER_COLOR);</span>
+<span class="cstat-no" title="statement not covered" >console.log('Computer color:', cfg.COMPUTER_COLOR);</span>
 &nbsp;
-let game;
+// Test 2: Check RNG function
+<span class="cstat-no" title="statement not covered" >console.log('\n=== RNG Test ===');</span>
+const testRNG = <span class="cstat-no" title="statement not covered" >seededRandomGenerator(123);</span>
+const rngValues = <span class="cstat-no" title="statement not covered" >Array(5).fill(0).map(<span class="fstat-no" title="function not covered" >()</span> =&gt; <span class="cstat-no" title="statement not covered" >testRNG().toFixed(4))</span>;</span>
+<span class="cstat-no" title="statement not covered" >console.log('5 RNG values with seed 123:', rngValues.join(', '));</span>
 &nbsp;
-function <span class="fstat-no" title="function not covered" >initGame(</span>seed = <span class="branch-0 cbranch-no" title="branch not covered" >null)</span> {
-<span class="cstat-no" title="statement not covered" >    if (game) {</span>
-<span class="cstat-no" title="statement not covered" >        game.destroy(); </span>// Add a destroy method to clean up any existing game state
-    }
-<span class="cstat-no" title="statement not covered" >    game = new Game('gameCanvas', seed);</span>
-<span class="cstat-no" title="statement not covered" >    game.start();</span>
+// Test 3: Verify rngInstance is working
+<span class="cstat-no" title="statement not covered" >console.log('\n=== rngInstance Test ===');</span>
+<span class="cstat-no" title="statement not covered" >console.log('First value from rngInstance:', rngInstance().toFixed(4));</span>
+<span class="cstat-no" title="statement not covered" >console.log('Second value from rngInstance:', rngInstance().toFixed(4));</span>
+&nbsp;
+// Test 4: Verify required config values exist
+const requiredProps = <span class="cstat-no" title="statement not covered" >[</span>
+    'VERSION', 'GAME_SPEED', 'width', 'height', 'seed',
+    'TOTAL_NODES', 'MIN_DISTANCE', 'nodeRadius',
+    'PLAYER_COLOR', 'COMPUTER_COLOR', 'UNCONTROLLED_COLOR'
+];
+&nbsp;
+<span class="cstat-no" title="statement not covered" >console.log('\n=== Required Properties Test ===');</span>
+const missingProps = <span class="cstat-no" title="statement not covered" >requiredProps.filter(<span class="fstat-no" title="function not covered" >pr</span>op =&gt; <span class="cstat-no" title="statement not covered" >!(prop in cfg))</span>;</span>
+<span class="cstat-no" title="statement not covered" >if (missingProps.length === 0) {</span>
+<span class="cstat-no" title="statement not covered" >    console.log('✓ All required properties are present');</span>
+} else {
+<span class="cstat-no" title="statement not covered" >    console.error('✗ Missing required properties:', missingProps.join(', '));    </span>
+<span class="cstat-no" title="statement not covered" >    process.exit(1);</span>
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >document.addEventListener('DOMContentLoaded', <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-    // Set the version number in the UI
-    const versionElement = <span class="cstat-no" title="statement not covered" >document.getElementById('versionNumber');</span>
-<span class="cstat-no" title="statement not covered" >    if (versionElement) {</span>
-<span class="cstat-no" title="statement not covered" >        versionElement.textContent = `v${cfg.VERSION}`;</span>
-    }
-&nbsp;
-    // Show the restart button
-<span class="cstat-no" title="statement not covered" >    document.getElementById('restartButton').style.display = 'inline-block';</span>
-&nbsp;
-    // Initialize the game with the default seed
-    const defaultSeed = <span class="cstat-no" title="statement not covered" >parseInt(</span>
-        document.getElementById('seedInput').value,
-        10,
-    );
-<span class="cstat-no" title="statement not covered" >    initGame(defaultSeed);</span>
-&nbsp;
-    // Restart button logic
-<span class="cstat-no" title="statement not covered" >    document.getElementById('restartButton').addEventListener('click', <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-        const seed = <span class="cstat-no" title="statement not covered" >parseInt(document.getElementById('seedInput').value, 10);</span>
-<span class="cstat-no" title="statement not covered" >        initGame(seed);</span>
-    });
-});
+<span class="cstat-no" title="statement not covered" >console.log('\n=== Config Test Completed Successfully ===');</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->

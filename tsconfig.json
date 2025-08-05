@@ -1,12 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "Node16",
-    "moduleResolution": "node16",
+    "module": "ES2020",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "allowJs": true,
     "checkJs": true,
-    "noEmit": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
     "strict": false,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -14,11 +15,10 @@
     "isolatedModules": true,
     "noImplicitAny": false,
     "allowSyntheticDefaultImports": true,
-    "jsx": "preserve",
     "lib": ["dom", "dom.iterable", "esnext"],
     "baseUrl": ".",
     "paths": {
-      "*": ["node_modules/*"]
+      "*": ["node_modules/*", "src/*"]
     },
     "types": ["node", "jest"],
     "typeRoots": [
@@ -26,6 +26,6 @@
       "./types"
     ]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["src/**/*.ts", "*.ts"],
   "exclude": ["node_modules", "dist", "**/__tests__/**", "**/*.test.ts", "**/*.test.js"]
 }

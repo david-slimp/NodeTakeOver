@@ -1,8 +1,8 @@
 // game.js
 
-import {cfg, rngInstance, seededRandomGenerator} from './config.js';
-import {Node} from './node.js';
-import {Wall} from './wall.js';
+import {cfg, rngInstance, seededRandomGenerator} from './config';
+import {Node} from './node';
+import {Wall} from './wall';
 
 export class Game {
     constructor(canvasId, seed = null) {

@@ -7,7 +7,7 @@ import { GameConfig, SeededRandomGenerator } from './types/config';
 export const cfg: GameConfig = {
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.2.2',
+    VERSION: '0.3.0',
 
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
@@ -57,10 +57,18 @@ export const cfg: GameConfig = {
  */
 export function seededRandomGenerator(seed: number): SeededRandomGenerator {
     let value = seed;
-    return (): number => {
+    const rng = (): number => {
         value = (value * 9301 + 49297) % 233280;
         return value / 233280;
     };
+    // Add the seed property to the function
+    Object.defineProperty(rng, 'seed', {
+        value: seed,
+        writable: false,
+        enumerable: false,
+        configurable: false
+    });
+    return rng as SeededRandomGenerator;
 }
 
 /**

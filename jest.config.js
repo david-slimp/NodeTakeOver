@@ -1,13 +1,23 @@
 /** @type {import('jest').Config} */
 module.exports = {
   testEnvironment: 'jsdom', // For browser-like environment
-  testMatch: ['**/__tests__/**/*.test.js'],
+  testMatch: ['**/__tests__/**/*.test.[jt]s?(x)'],
   collectCoverage: true,
-  collectCoverageFrom: ['**/*.js', '!**/node_modules/**', '!**/dist/**'],
+  collectCoverageFrom: [
+    '**/*.{js,ts,tsx}',
+    '!**/node_modules/**',
+    '!**/dist/**',
+    '!**/coverage/**',
+    '!**/types/**',
+  ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov'],
+  moduleFileExtensions: ['js', 'jsx', 'ts', 'tsx', 'json', 'node'],
   transform: {
-    '^.+\\.js$': 'babel-jest',
+    '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
 };

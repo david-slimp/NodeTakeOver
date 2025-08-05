@@ -5,5 +5,11 @@ module.exports = {
         node: 'current',
       },
     }],
+    '@babel/preset-typescript',
+  ],
+  plugins: [
+    ['@babel/plugin-transform-runtime', {
+      regenerator: true,
+    }],
   ],
 };
