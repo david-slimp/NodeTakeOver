@@ -2,7 +2,7 @@
 
 export const cfg = {
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.2.1', // code version number
+    VERSION: '0.2.2', // code version number
 
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
