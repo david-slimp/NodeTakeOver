@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2] - 2025-08-04
+
+### Fixed
+
+- Fixed pause functionality to properly freeze all game activity including unit movement and battles
+- Units now remain visible but frozen in place when game is paused
+- Battle resolution is now properly paused and resumed with the game state
+- Fixed timing issues with attack animations during pause/unpause
+
 ## [0.2.1] - 2025-08-04
 
 ### Fixed
