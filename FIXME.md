@@ -1,3 +1,92 @@
+
+Here is my "New Day" developer AI prompt for firing up Windsruf again and
+getting back to work for the next day/sprint/project:
+"
+Let's look over the main codebase for this game project. There are about 8 or so main active game files. We are in the process of migrating from JS to TS.  I think we have finished the config.ts and node.ts so far, but let's double check where we are at in this process.
+We also want to confirm our devel environment.... I think we are using some testing framework to make sure we keep stable and bug-free code.  There could be a couple different layers of tests?
+What are some suggestions for our next coding sprint today?
+"
+
+=============================================
+Current Wall Class Methods
+
+Instance Methods
+1. constructor(x1, y1, x2, y2)
+- Core functionality - should stay in Wall class
+- Purpose: Creates a wall with start and end coordinates
+2. draw(ctx)
+- Rendering functionality
+- Could potentially be moved to a WallRenderer class if rendering becomes more complex
+- For now, can stay in Wall class
+
+Static Methods (Potential Utility Candidates)
+
+Wall Generation
+
+3. static generateWalls(count, nodes, chain, rng)
+- Wall-specific logic
+- Should stay in Wall class as it's a factory method
+4. static createWall(rng)
+- Wall creation logic
+- Should stay in Wall class as a factory method
+
+Collision Detection
+5. static isWallPositionValid(wall, walls, nodes, chain)
+- High-level validation
+- Should stay in Wall class as it coordinates other validations
+6. static linesIntersect(w1, w2)
+- Pure geometry function
+- Could be moved to a geometry.ts utility file
+- Used by multiple classes (Wall, potentially others)
+7. static lineIntersectsNode(wall, node)
+- Specific to Wall-Node interaction
+- Could be moved to a collision.ts utility file
+- Or stay in Wall class as it's wall-specific
+
+Commented-out Code
+8. lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r)
+- More general version of lineIntersectsNode
+- Should be moved to geometry.ts if uncommented
+9. isPathBlocked(node1, node2)
+- Game-specific logic
+- Could be moved to a gameLogic.ts or similar
+
+
+Proposed Modular Structure
+1. Keep in Wall Class:
+-constructor
+-draw (for now)
+-generateWalls
+-createWall
+-isWallPositionValid
+
+2. Move to src/utils/geometry.ts:
+- linesIntersect
+- lineIntersectsCircle (if uncommented)
+- Other geometric utilities
+
+3. Move to src/utils/collision.ts:
+- lineIntersectsNode
+- Other collision detection functions
+
+4. Move to src/utils/random.ts:
+- Any RNG-related utilities
+
+5. Move to src/game/:
+- Game-specific logic like isPathBlocked
+
+Suggested Next Steps
+1. Create the utility files:
+    bash
+    mkdir -p src/utils
+    touch src/utils/geometry.ts
+    touch src/utils/collision.ts
+2. Move the appropriate functions to these files
+3. Update imports in Wall class
+4. Add proper TypeScript types
+5. Add unit tests for the utility functions
+=============================================
+
 Here’s a revised and reorganized list that now integrates both the original 25 issues and these new considerations. The goal is to prioritize what will most help accelerate future development, streamline the codebase, and reduce risk, especially for upcoming features and collaboration.
 
 ---

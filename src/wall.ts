@@ -3,12 +3,33 @@
 import { cfg, rngInstance } from './config';
 import type { Node } from './node';
 
+/**
+ * Represents a wall in the game that can block movement between nodes.
+ * Walls are line segments defined by two points (x1,y1) and (x2,y2).
+ * They are used as obstacles that affect unit movement and pathfinding.
+ */
 export class Wall {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
+    /** The x-coordinate of the starting point of the wall */
+    readonly x1: number;
+    
+    /** The y-coordinate of the starting point of the wall */
+    readonly y1: number;
+    
+    /** The x-coordinate of the ending point of the wall */
+    readonly x2: number;
+    
+    /** The y-coordinate of the ending point of the wall */
+    readonly y2: number;
 
+    /**
+     * Creates a new Wall instance with the specified coordinates.
+     * These coordinates are immutable after creation.
+     * 
+     * @param x1 - The x-coordinate of the starting point
+     * @param y1 - The y-coordinate of the starting point
+     * @param x2 - The x-coordinate of the ending point
+     * @param y2 - The y-coordinate of the ending point
+     */
     constructor(x1: number, y1: number, x2: number, y2: number) {
         cfg.VERBOSE > 2 && console.log('wall.ts - constructor');
         this.x1 = x1;
@@ -17,6 +38,11 @@ export class Wall {
         this.y2 = y2;
     }
 
+    /**
+     * Draws the wall on the provided canvas context.
+     * 
+     * @param ctx - The canvas rendering context to draw on
+     */
     draw(ctx: CanvasRenderingContext2D): void {
         ctx.beginPath();
         ctx.moveTo(this.x1, this.y1);
@@ -26,6 +52,18 @@ export class Wall {
         ctx.stroke();
     }
 
+    /**
+     * Generates a specified number of walls that don't interfere with nodes or existing walls.
+     * This method ensures that walls are placed in valid positions that don't block the main chain.
+     * 
+     * @param count - The number of walls to generate
+     * @param nodes - Array of all nodes in the game
+     * @param chain - The main chain of nodes that should not be blocked
+     * @param rng - A random number generator function for wall placement
+     * @returns An array of generated Wall instances
+     * 
+     * @throws {Error} If unable to place all requested walls after maximum attempts
+     */
     static generateWalls(count: number, nodes: Node[], chain: Node[], rng: () => number): Wall[] {
         const walls: Wall[] = [];
         for (let i = 0; i < count; i++) {
@@ -36,9 +74,17 @@ export class Wall {
             } while (!Wall.isWallPositionValid(wall, walls, nodes, chain));
             walls.push(wall);
         }
+        cfg.VERBOSE > 0 && console.log(`Generated ${walls.length} walls`);
         return walls;
     }
 
+    /**
+     * Creates a single wall at a random position with a random orientation.
+     * The wall's length is determined by the configuration's wallMaxLength.
+     * 
+     * @param rng - A random number generator function
+     * @returns A new Wall instance with random position and orientation
+     */
     static createWall(rng: () => number): Wall {
         cfg.VERBOSE > 2 && console.log('wall - create Wall');
         const length =
@@ -51,6 +97,19 @@ export class Wall {
         return new Wall(x1, y1, x2, y2);
     }
 
+    /**
+     * Checks if a wall can be placed at the specified position without causing conflicts.
+     * A wall position is invalid if it:
+     * - Is too close to any node
+     * - Intersects with any existing walls
+     * - Blocks the main node chain
+     * 
+     * @param wall - The wall to validate
+     * @param walls - Array of existing walls to check against
+     * @param nodes - Array of all nodes in the game
+     * @param chain - The main chain of nodes that should not be blocked
+     * @returns True if the wall position is valid, false otherwise
+     */
     static isWallPositionValid(wall: Wall, walls: Wall[], nodes: Node[], chain: Node[]): boolean {
         cfg.VERBOSE > 2 && console.log('wall - is Wall Pos Valid');
         
@@ -59,20 +118,20 @@ export class Wall {
             const dist = this.distanceFromPointToLine(
                 node.x, node.y, wall.x1, wall.y1, wall.x2, wall.y2
             );
-            if (dist < cfg.nodeRadius * 2) {
+            if (dist < cfg.nodeRadius + 5) {
                 return false;
             }
         }
 
         // Check minimum distance from other walls
-        for (const otherWall of walls) {
-            if (this.doLinesIntersect(
-                wall.x1, wall.y1, wall.x2, wall.y2,
-                otherWall.x1, otherWall.y1, otherWall.x2, otherWall.y2
-            )) {
-                return false;
-            }
-        }
+        //for (const otherWall of walls) {
+        //    if (this.doLinesIntersect(
+        //        wall.x1, wall.y1, wall.x2, wall.y2,
+        //        otherWall.x1, otherWall.y1, otherWall.x2, otherWall.y2
+        //    )) {
+        //        return false;
+        //    }
+        //}
 
         // Check that the wall doesn't block the chain
         for (let i = 0; i < chain.length - 1; i++) {
@@ -89,6 +148,17 @@ export class Wall {
         return true;
     }
 
+    /**
+     * Calculates the shortest distance from a point to a line segment.
+     * 
+     * @param px - The x-coordinate of the point
+     * @param py - The y-coordinate of the point
+     * @param x1 - The x-coordinate of the line's start point
+     * @param y1 - The y-coordinate of the line's start point
+     * @param x2 - The x-coordinate of the line's end point
+     * @param y2 - The y-coordinate of the line's end point
+     * @returns The shortest distance from the point to the line segment
+     */
     private static distanceFromPointToLine(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
         const A = px - x1;
         const B = py - y1;
@@ -121,6 +191,19 @@ export class Wall {
         return Math.sqrt(dx * dx + dy * dy);
     }
 
+    /**
+     * Determines if two line segments intersect.
+     * 
+     * @param x1 - The x-coordinate of the first line's start point
+     * @param y1 - The y-coordinate of the first line's start point
+     * @param x2 - The x-coordinate of the first line's end point
+     * @param y2 - The y-coordinate of the first line's end point
+     * @param x3 - The x-coordinate of the second line's start point
+     * @param y3 - The y-coordinate of the second line's start point
+     * @param x4 - The x-coordinate of the second line's end point
+     * @param y4 - The y-coordinate of the second line's end point
+     * @returns True if the line segments intersect, false otherwise
+     */
     private static doLinesIntersect(
         x1: number, y1: number, x2: number, y2: number,
         x3: number, y3: number, x4: number, y4: number

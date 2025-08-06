@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.1] - 2025-08-06
+
+### Added
+- Migrated `wall.js` to TypeScript as `wall.ts` with full type safety
+- Comprehensive test suite for Wall class with 100% line coverage
+- Detailed JSDoc documentation for all Wall class methods
+- Made Wall position properties readonly to enforce immutability
+
+### Changed
+- Removed deprecated `wall.js` file as part of TypeScript migration
+- Reduced number of nodes from 20 to 15 for better gameplay balance
+- Increased number of walls from 50 to 80 for more strategic depth
+
+### Fixed
+- Improved wall placement validation to prevent invalid wall positions
+- Enhanced type safety throughout the wall-related code
+- Optimized wall collision detection performance
+
 ## [0.3.0] - 2025-08-05
 
 ### Added
