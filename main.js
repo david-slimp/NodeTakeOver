@@ -4,12 +4,15 @@ import {Game} from './game.js';
 import {cfg} from './config.js';
 
 let game;
+let debugMode = false;
 
 function initGame(seed = null) {
     if (game) {
-        game.destroy(); // Add a destroy method to clean up any existing game state
+        // Save the current debug state before destroying the game
+        debugMode = game.debugMode;
+        game.destroy(); // Clean up any existing game state
     }
-    game = new Game('gameCanvas', seed);
+    game = new Game('gameCanvas', seed, debugMode);
     game.start();
 }
 

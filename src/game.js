@@ -1,11 +1,12 @@
 // game.js
 
-import {cfg, rngInstance, seededRandomGenerator} from './config.js';
-import {Node} from './node.js';
-import {Wall} from './wall.js';
+import {cfg, rngInstance, seededRandomGenerator} from './config';
+import {Node} from './node';
+import {NodeRenderer} from './NodeRenderer';
+import {Wall} from './wall';
 
 export class Game {
-    constructor(canvasId, seed = null) {
+    constructor(canvasId, seed = null, debugMode = false) {
         this.seed = seed || Date.now();
         cfg.seed = this.seed;
         // Create a new RNG instance with the provided seed
@@ -15,9 +16,17 @@ export class Game {
             console.error('Canvas element not found!');
             return;
         }
+        
+        // Track pause state and timing
+        this.pauseStartTime = 0;
+        this.totalPausedTime = 0;
 
         // Game variables
         this.ctx = this.canvas.getContext('2d');
+        this.nodeRenderer = new NodeRenderer(this.ctx);
+        this.config = {};
+        this.attackAnimations = []; // Track active attack animations
+        this.activeTimeouts = []; // Track active timeouts for cleanup
         this.nodes = [];
         this.nodechain = [];
         this.walls = [];
@@ -25,12 +34,25 @@ export class Game {
         this.computerGold = 0;
         this.attackAnimations = [];
         this.isMuted = false;
+        this.isPaused = false; // Track if game is paused
+        this.gameActive = false; // Track if game is active
         this.selectedNode = null;
         this.computerCanAct = false; // Tracks if the computer can act, start off with little delay
         this.computerLastCaptureTime = Date.now(); // Tracks the last capture time
-        this.unitGenerationInterval = null;
-        this.continuousFlowInterval = null;
-        this.gameLoopId;
+        this.gameLoopId = null;
+        
+        // Initialize bound event handlers
+        this.boundHandlePointerDown = null;
+        this.boundHandlePointerUp = null;
+        this.boundHandleKeydown = null;
+        
+        // Delta time tracking
+        this.lastFrameTime = 0;
+        this.continuousFlowTimer = 0;
+        this.unitGenerationTimer = 0;
+        
+        // Debug mode flag - passed from main.js to persist across restarts
+        this.debugMode = debugMode;
 
         // final setup
         this.setGameboardDimensions();
@@ -38,9 +60,56 @@ export class Game {
     }
 
     destroy() {
-        cancelAnimationFrame(this.gameLoopId);
-        clearInterval(this.unitGenerationInterval);
-        // Add any other cleanup necessary
+        console.log('Destroying game instance...');
+        
+        // Mark game as inactive to prevent any further updates
+        this.gameActive = false;
+        this.isPaused = true;
+        
+        // Clear any active timeouts first
+        this.clearActiveTimeouts();
+        
+        // Cancel any pending animation frames
+        if (this.gameLoopId) {
+            cancelAnimationFrame(this.gameLoopId);
+            this.gameLoopId = null;
+        }
+        
+        // Clean up event listeners
+        if (this.boundHandleKeydown) {
+            document.removeEventListener('keydown', this.boundHandleKeydown);
+            this.boundHandleKeydown = null;
+        }
+        
+        // Remove all pointer event listeners
+        if (this.boundHandlePointerDown) {
+            this.canvas.removeEventListener('mousedown', this.boundHandlePointerDown);
+            this.canvas.removeEventListener('touchstart', this.boundHandlePointerDown);
+            this.boundHandlePointerDown = null;
+        }
+        if (this.boundHandlePointerUp) {
+            this.canvas.removeEventListener('mouseup', this.boundHandlePointerUp);
+            this.canvas.removeEventListener('touchend', this.boundHandlePointerUp);
+            this.boundHandlePointerUp = null;
+        }
+        
+        // Clear references to DOM elements
+        this.selectedNode = null;
+        
+        // Clear any active animations
+        this.attackAnimations = [];
+        
+        // Clear the canvas
+        if (this.ctx) {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        
+        // Force garbage collection (where supported)
+        if (window.gc) {
+            window.gc();
+        }
+        
+        console.log('Game instance destroyed and resources cleaned up');
     }
 
     setGameboardDimensions() {
@@ -70,15 +139,17 @@ export class Game {
     start() {
         console.log('INITGAME - B');
         this.initGame();
-        this.gameLoop();
+        // Reset timers
+        this.lastFrameTime = 0;
+        this.continuousFlowTimer = 0;
+        this.unitGenerationTimer = 0;
+        this.startGameLoop();
     }
 
     // Initialize the game
     initGame() {
         cfg.VERBOSE >= 2 && console.log('starting initGame');
-        // Clear previous intervals
-        clearInterval(this.unitGenerationInterval);
-        clearInterval(this.continuousFlowInterval);
+        // Clear any existing game loop
         cancelAnimationFrame(this.gameLoopId);
         this.isPaused = false;
         this.gameActive = true; // Tracks if the game is active
@@ -89,7 +160,7 @@ export class Game {
 
         // SET UP Node Chain
         this.nodechain = Node.createNodeChain(this.nodes);
-        Node.drawNodeChain(this.ctx, this.nodes);
+        this.nodeRenderer.drawNodeChain(this.nodes);
 
         // SET UP Walls
         this.walls = Wall.generateWalls(
@@ -98,18 +169,25 @@ export class Game {
             this.nodechain,
             this.rng,
         );
+        // Set up event listeners
         this.setupEventListeners();
-        this.continuousFlowInterval = setInterval(
-            () => this.handleContinuousFlow(),
-            100 * cfg.UNIT_DISPATCH_FREQUENCY,
-        );
+        
+        // Reset timers
+        this.continuousFlowTimer = 0;
+        this.unitGenerationTimer = 0;
+        this.lastFrameTime = performance.now();
+
+        // Clear any existing intervals (for safety)
+        if (this.continuousFlowInterval) {
+            clearInterval(this.continuousFlowInterval);
+            this.continuousFlowInterval = null;
+        }
 
         // Initialize mute button (OLD CODE)
         // updateMuteButton();
         // document.getElementById("muteButton").addEventListener("click", toggleMute);
 
         cfg.VERBOSE >= 2 && console.log('Game initialized');
-
         console.log('BEFORE GAMELOOP');
         this.startGameLoop();
         console.log('AFTER GAMELOOP');
@@ -243,37 +321,47 @@ export class Game {
     }
 
     setupEventListeners() {
-        this.canvas.removeEventListener('mousedown', this.handlePointerDown);
-        this.canvas.removeEventListener('mouseup', this.handlePointerUp);
-        this.canvas.removeEventListener('touchstart', this.handlePointerDown);
-        this.canvas.removeEventListener('touchend', this.handlePointerUp);
+        // Remove existing event listeners if they exist
+        if (this.boundHandlePointerDown) {
+            this.canvas.removeEventListener('mousedown', this.boundHandlePointerDown);
+            this.canvas.removeEventListener('touchstart', this.boundHandlePointerDown);
+        }
+        if (this.boundHandlePointerUp) {
+            this.canvas.removeEventListener('mouseup', this.boundHandlePointerUp);
+            this.canvas.removeEventListener('touchend', this.boundHandlePointerUp);
+        }
+        if (this.boundHandleKeydown) {
+            document.removeEventListener('keydown', this.boundHandleKeydown);
+        }
 
-        this.canvas.addEventListener('mousedown', (event) =>
-            this.handlePointerDown(event),
-        );
-        this.canvas.addEventListener('mouseup', (event) =>
-            this.handlePointerUp(event),
-        );
+        // Bind methods to maintain 'this' context
+        this.boundHandlePointerDown = this.handlePointerDown.bind(this);
+        this.boundHandlePointerUp = this.handlePointerUp.bind(this);
+        this.boundHandleKeydown = this.handleKeydown.bind(this);
+
+        // Add event listeners
+        this.canvas.addEventListener('mousedown', this.boundHandlePointerDown);
+        this.canvas.addEventListener('mouseup', this.boundHandlePointerUp);
         this.canvas.addEventListener(
             'touchstart',
-            (event) => this.handlePointerDown(event),
-            {
-                passive: false,
-            },
+            this.boundHandlePointerDown,
+            { passive: false }
         );
         this.canvas.addEventListener(
             'touchend',
-            (event) => this.handlePointerUp(event),
-            {
-                passive: false,
-            },
+            this.boundHandlePointerUp,
+            { passive: false }
         );
-        document.addEventListener('keydown', (event) =>
-            this.handleKeydown(event),
-        );
+        document.addEventListener('keydown', this.boundHandleKeydown);
     }
 
     handlePointerDown(event) {
+        // Don't process pointer events when paused
+        if (this.isPaused) {
+            event.preventDefault();
+            return;
+        }
+        
         const rect = this.canvas.getBoundingClientRect();
         const x = (event.clientX || event.touches[0].clientX) - rect.left;
         const y = (event.clientY || event.touches[0].clientY) - rect.top;
@@ -281,14 +369,19 @@ export class Game {
     }
 
     handlePointerUp(event) {
-        cfg.VERBOSE > 2 && console.log('PointerUp');
-        const rect = this.canvas.getBoundingClientRect();
-        const x =
-            (event.clientX || event.changedTouches[0].clientX) - rect.left;
-        const y = (event.clientY || event.changedTouches[0].clientY) - rect.top;
-        if (this.selectedNode && this.selectedNode.owner === 'player') {
-            cfg.VERBOSE > 2 && console.log('PointerUp - A');
+        // Don't process pointer events when paused
+        if (this.isPaused) {
+            event.preventDefault();
+            return;
+        }
+            
+        cfg.VERBOSE > 2 && console.log('PointerUp - A:', event);
+        if (this.selectedNode) {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = (event.clientX || event.changedTouches[0].clientX) - rect.left;
+            const y = (event.clientY || event.changedTouches[0].clientY) - rect.top;
             const targetNode = Node.getNodeAt(x, y, this.nodes);
+            
             if (
                 targetNode &&
                 targetNode !== this.selectedNode &&
@@ -302,38 +395,77 @@ export class Game {
             }
         }
         cfg.VERBOSE > 2 && console.log('PointerUp - D');
-        this.selectedNode = null;
     }
 
     handleKeydown(event) {
+        // Always allow pause/unpause with 'p' or spacebar
+        if (event.key.toLowerCase() === 'p' || event.key === ' ' || event.key === 'Spacebar') {
+            event.preventDefault();
+            this.togglePause();
+            return;
+        }
+
+        // Block all other inputs when paused
+        if (this.isPaused) {
+            event.preventDefault();
+            return;
+        }
+
+        // Toggle debug mode with '?'
+        if (event.key === '?') {
+            event.preventDefault();
+            this.debugMode = !this.debugMode;
+            console.log(`Debug mode ${this.debugMode ? 'enabled' : 'disabled'}`);
+            return;
+        }
+
+        // Handle other keys when not paused
         switch (event.key.toLowerCase()) {
-            case 'p':
-            case ' ':
-                this.togglePause();
-                break;
             case 'r':
                 this.initGame();
                 break;
+            // Add other key handlers here if needed
         }
     }
 
+    handlePointerDown(event) {
+        // Don't process pointer events when paused
+        if (this.isPaused) {
+            event.preventDefault();
+            return;
+        }
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const x = (event.clientX || event.touches[0].clientX) - rect.left;
+        const y = (event.clientY || event.touches[0].clientY) - rect.top;
+        this.selectedNode = Node.getNodeAt(x, y, this.nodes);
+    }
     togglePause() {
         this.isPaused = !this.isPaused;
+        
         if (this.isPaused) {
-            clearInterval(this.unitGenerationInterval);
-            clearInterval(this.continuousFlowInterval);
-            cancelAnimationFrame(this.gameLoopId);
+            // When pausing, record the pause start time
+            this.pauseStartTime = performance.now();
         } else {
-            this.unitGenerationInterval = setInterval(
-                () => this.generateUnitsForControlledNodes(),
-                1000 / cfg.PLAYER_UNIT_GENERATION_SPEED,
-            );
-            this.continuousFlowInterval = setInterval(
-                () => this.handleContinuousFlow(),
-                1000 / cfg.PLAYER_UNIT_DISPATCH_SPEED,
-            );
-            this.startGameLoop();
+            // When unpausing, update the total paused time and reset the last frame time
+            this.totalPausedTime += performance.now() - this.pauseStartTime;
+            this.lastFrameTime = performance.now();
+            
+            // Adjust animation start times to account for the pause duration
+            const currentTime = performance.now();
+            this.attackAnimations.forEach(anim => {
+                // Extend the animation duration by the time spent paused
+                if (!anim.completed) {
+                    anim.startTime += (currentTime - this.pauseStartTime);
+                }
+            });
         }
+    }
+    
+    clearActiveTimeouts() {
+        // Clear all active timeouts when pausing
+        this.activeTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
+        this.activeTimeouts = [];
     }
 
     generateUnitsForControlledNodes() {
@@ -348,54 +480,146 @@ export class Game {
     }
 
     startGameLoop() {
-        this.gameLoopId = requestAnimationFrame(() => this.gameLoop());
+        this.lastFrameTime = performance.now();
+        this.gameLoopId = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
     }
 
-    gameLoop() {
+    gameLoop(timestamp) {
+        // If game is no longer active, don't schedule another frame
+        if (!this.gameActive) {
+            console.log('Game loop ending (game no longer active)');
+            return;
+        }
+
+        if (!this.lastFrameTime) this.lastFrameTime = timestamp;
+        const deltaTime = (timestamp - this.lastFrameTime) / 1000; // Convert to seconds
+        this.lastFrameTime = timestamp;
+
         if (this.gameActive && !this.isPaused) {
-            this.updateGameState();
-            this.updateAttackAnimations();
-            this.draw();
+            this.updateGameState(deltaTime);
+            this.updateAttackAnimations(deltaTime);
             this.checkGameOver();
-            this.gameLoopId = requestAnimationFrame(() => this.gameLoop());
+        }
+        
+        // Always draw, even when paused, to show the pause overlay
+        this.draw();
+        
+        // Only request next frame if game is still active
+        if (this.gameActive) {
+            this.gameLoopId = requestAnimationFrame((ts) => this.gameLoop(ts));
         }
     }
 
-    updateGameState() {
-        // return;  // this same code is done with generateUnitsForControlledNodes
-        this.nodes.forEach((node) => {
-            if (node.units < node.maxUnits) {
-                node.units += node.generationSpeed / 500;
-            }
-        });
-        // Other game logic like attack animations
+    updateGameState(deltaTime) {
+        // Update unit generation using delta time
+        this.unitGenerationTimer += deltaTime;
+        const generationInterval = 1 / 30; // 30 times per second
+        
+        while (this.unitGenerationTimer >= generationInterval) {
+            this.nodes.forEach((node) => {
+                if (node.units < node.maxUnits) {
+                    node.units += node.generationSpeed * generationInterval;
+                }
+            });
+            this.unitGenerationTimer -= generationInterval;
+        }
+        
+        // Update continuous flow using delta time
+        this.continuousFlowTimer += deltaTime;
+        const dispatchInterval = 1 / cfg.PLAYER_UNIT_DISPATCH_SPEED;
+        
+        while (this.continuousFlowTimer >= dispatchInterval) {
+            this.handleContinuousFlow();
+            this.continuousFlowTimer -= dispatchInterval;
+        }
     }
 
-    updateAttackAnimations() {
-        return;
+    updateAttackAnimations(deltaTime) {
+        const now = performance.now();
+        const activeAnimations = [];
+        
         this.attackAnimations.forEach((animation) => {
-            animation.progress += 16 / animation.duration; // Assume 60 FPS
-            if (animation.progress > 1) {
-                this.resolveBattle(animation.toNode, animation.fromNode.owner);
-                this.attackAnimations = this.attackAnimations.filter(
-                    (a) => a !== animation,
-                );
+            if (animation.completed) return;
+            
+            if (!this.isPaused) {
+                // Adjust for any time spent paused
+                const adjustedNow = now - this.totalPausedTime;
+                const elapsed = adjustedNow - (animation.startTime - this.totalPausedTime);
+                animation.progress = Math.min(elapsed / animation.duration, 1);
+                
+                // If animation completed, resolve battle
+                if (animation.progress >= 1) {
+                    this.resolveBattle(animation.toNode, animation.fromNode.owner);
+                    animation.completed = true;
+                    return; // Skip adding to active animations
+                }
             }
+            activeAnimations.push(animation);
         });
+        
+        // Update the animations array to only include active animations
+        this.attackAnimations = activeAnimations;
     }
 
     draw() {
-        this.ctx.clearRect(0, 0, cfg.width, cfg.height);
-        this.walls.forEach((wall) => wall.draw(this.ctx));
-        this.nodes.forEach((node) => node.draw(this.ctx));
-        Node.drawNodeChain(this.ctx, this.nodes);
+        // Clear the canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw the game board background
+        this.ctx.fillStyle = '#f0f0f0';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Draw node connections in debug mode
+        if (this.debugMode) {
+            this.nodeRenderer.drawNodeChain(this.nodes);
+        }
+        
+        // Draw walls
+        this.walls.forEach(wall => wall.draw(this.ctx));
+        
+        // Draw nodes
+        this.nodes.forEach(node => this.nodeRenderer.drawNode(node));
+        
+        // Draw attack animations
         this.drawAttackAnimations();
+        
+        // Draw selection indicator if a node is selected
+        if (this.selectedNode) {
+            this.ctx.strokeStyle = '#00ff00';
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            this.ctx.arc(
+                this.selectedNode.x,
+                this.selectedNode.y,
+                this.selectedNode.radius + 5,
+                0,
+                Math.PI * 2
+            );
+            this.ctx.stroke();
+        }
+        
+        // Draw pause overlay if game is paused
+        if (this.isPaused) {
+            // Semi-transparent overlay
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // "Paused" text
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = '48px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
+            
+            // Instructions
+            this.ctx.font = '24px Arial';
+            this.ctx.fillText('Press P or SPACE to resume', this.canvas.width / 2, this.canvas.height / 2 + 50);
+        }
     }
 
     drawAttackAnimations() {
         this.attackAnimations.forEach((animation) => {
-            animation.progress += 16 / animation.duration; // Assume 60 FPS
-            if (animation.progress > 1) animation.progress = 1;
+            if (animation.completed) return;
 
             const startX = animation.startX;
             const startY = animation.startY;
@@ -531,15 +755,10 @@ export class Game {
             startY,
             progress: 0,
             duration: travelTime,
+            startTime: performance.now(),
+            completed: false
         };
         this.attackAnimations.push(animation);
-
-        setTimeout(() => {
-            this.resolveBattle(toNode, fromNode.owner);
-            this.attackAnimations = this.attackAnimations.filter(
-                (a) => a !== animation,
-            );
-        }, travelTime);
     }
 
     calculateTravelTime(fromNode, toNode, unitSpeed) {
