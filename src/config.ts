@@ -7,7 +7,7 @@ import { GameConfig, SeededRandomGenerator } from './types/config';
 export const cfg: GameConfig = {
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.3.0',
+    VERSION: '0.3.1',
 
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
@@ -16,13 +16,13 @@ export const cfg: GameConfig = {
     seed: 1234,
 
     // Node configuration
-    TOTAL_NODES: 20, // maybe only 10 for phone?
+    TOTAL_NODES: 15, // maybe only 10 for phone?
     MIN_DISTANCE: 70, // Minimum distance between nodes
     nodeRadius: 30,
     UNIT_DISPATCH_FREQUENCY: 10, // generally 1-10 (1=1/10sec  10=10/10sec)
 
     // Wall configuration
-    WALL_COUNT: 50, // reset based on screen size
+    WALL_COUNT: 80, // reset based on screen size
     wallMaxLength: 10, // reset based on screen size
     WALL_COLOR: '#555',
     WALL_WIDTH: 5,

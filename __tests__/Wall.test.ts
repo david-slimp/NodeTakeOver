@@ -3,7 +3,9 @@ import { Node } from '../src/node';
 import { cfg } from '../src/config';
 
 // Mock the config values
-jest.mock('../src/config', () => ({
+jest.mock('../src/config', () => {
+  const mockRNG = jest.fn();
+  return {
   cfg: {
     VERBOSE: 0,
     WALL_COLOR: '#000000',
@@ -12,8 +14,14 @@ jest.mock('../src/config', () => ({
     height: 600,
     nodeRadius: 20,
     wallMaxLength: 100
-  }
-}));
+  },
+    rngInstance: {
+      random: mockRNG
+    }
+  };
+});
+
+const mockRNG = (require('../src/config').rngInstance as any).random;
 
 describe('Wall', () => {
   let wall: Wall;
@@ -21,6 +29,7 @@ describe('Wall', () => {
   
   beforeEach(() => {
     wall = new Wall(10, 20, 30, 40);
+    mockRNG.mockReturnValue(0.5); // Default mock RNG value
     
     // Mock CanvasRenderingContext2D
     mockCtx = {
@@ -31,6 +40,10 @@ describe('Wall', () => {
       strokeStyle: '',
       lineWidth: 0,
     } as unknown as jest.Mocked<CanvasRenderingContext2D>;
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('constructor', () => {
@@ -55,38 +68,30 @@ describe('Wall', () => {
     });
   });
 
-  describe('generateWalls', () => {
-    it('should generate the specified number of walls', () => {
-      const nodes: Node[] = [];
-      const chain: Node[] = [];
-      const rng = jest.fn().mockReturnValue(0.5);
-      
-      const walls = Wall.generateWalls(3, nodes, chain, rng);
-      
-      expect(walls).toHaveLength(3);
-      expect(walls[0]).toBeInstanceOf(Wall);
-    });
-  });
-
   describe('createWall', () => {
-    it('should create a wall with random position and length', () => {
-      const rng = jest.fn()
-        .mockReturnValueOnce(0.5) // length factor
-        .mockReturnValueOnce(0.25) // angle factor
-        .mockReturnValueOnce(0.3) // x1
-        .mockReturnValueOnce(0.4); // y1
+    it('should create a wall with valid coordinates', () => {
+      // Setup mock RNG to return predictable values
+      mockRNG
+        .mockReturnValueOnce(0.5)  // For length calculation
+        .mockReturnValueOnce(0.25) // For angle calculation
+        .mockReturnValueOnce(0.3)  // For x1 position
+        .mockReturnValueOnce(0.4); // For y1 position
       
-      const wall = Wall.createWall(rng);
+      const wall = Wall.createWall(mockRNG);
       
       // Verify the wall was created with expected values
       expect(wall).toBeInstanceOf(Wall);
       expect(wall.x1).toBe(240); // 800 * 0.3
       expect(wall.y1).toBe(240); // 600 * 0.4
+      
       // Calculate expected values based on the implementation
-      const length = 0.5 * (cfg.wallMaxLength * 0.3) + cfg.wallMaxLength * 0.1;
-      const angle = 0.25 * Math.PI * 2;
-      expect(wall.x2).toBeCloseTo(wall.x1 + length * Math.cos(angle), 5);
-      expect(wall.y2).toBeCloseTo(wall.y1 + length * Math.sin(angle), 5);
+      const length = 0.5 * (100 * 0.3) + 100 * 0.1; // 15 + 10 = 25
+      const angle = 0.25 * Math.PI * 2; // π/2
+      const expectedX2 = wall.x1 + length * Math.cos(angle);
+      const expectedY2 = wall.y1 + length * Math.sin(angle);
+      
+      expect(wall.x2).toBeCloseTo(expectedX2, 5);
+      expect(wall.y2).toBeCloseTo(expectedY2, 5);
     });
   });
 
@@ -145,6 +150,48 @@ describe('Wall', () => {
       const isValid = Wall.isWallPositionValid(wall, existingWalls, nodes, chain);
       
       expect(isValid).toBe(true);
+    });
+  });
+
+  describe('generateWalls', () => {
+    it('should generate the specified number of valid walls', () => {
+      // Setup test data
+      const nodes = [
+        new Node(100, 100, 0, '#000000'),
+        new Node(700, 500, 1, '#000000')
+      ];
+      const chain = [...nodes];
+      
+      // Mock RNG to return predictable values
+      mockRNG
+        .mockReturnValue(0.8) // For all random values, use a value that will create valid walls
+        .mockReturnValueOnce(0.1) // For first wall's length
+        .mockReturnValueOnce(0.2) // For first wall's angle
+        .mockReturnValueOnce(0.1) // For first wall's x1
+        .mockReturnValueOnce(0.1) // For first wall's y1
+        .mockReturnValueOnce(0.1) // For second wall's length
+        .mockReturnValueOnce(0.3) // For second wall's angle
+        .mockReturnValueOnce(0.7) // For second wall's x1
+        .mockReturnValueOnce(0.7); // For second wall's y1
+      
+      // Generate walls
+      const wallCount = 2;
+      const walls = Wall.generateWalls(wallCount, nodes, chain, mockRNG);
+      
+      // Verify results
+      expect(walls).toHaveLength(wallCount);
+      walls.forEach(wall => {
+        expect(wall).toBeInstanceOf(Wall);
+        // Verify walls are within bounds
+        expect(wall.x1).toBeGreaterThanOrEqual(0);
+        expect(wall.x1).toBeLessThanOrEqual(800);
+        expect(wall.y1).toBeGreaterThanOrEqual(0);
+        expect(wall.y1).toBeLessThanOrEqual(600);
+        expect(wall.x2).toBeGreaterThanOrEqual(0);
+        expect(wall.x2).toBeLessThanOrEqual(800);
+        expect(wall.y2).toBeGreaterThanOrEqual(0);
+        expect(wall.y2).toBeLessThanOrEqual(600);
+      });
     });
   });
 

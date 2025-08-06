@@ -6,7 +6,7 @@ describe('Configuration', () => {
     expect(cfg).toHaveProperty('width', 800);
     expect(cfg).toHaveProperty('height', 600);
     expect(cfg).toHaveProperty('seed', 1234);
-    expect(cfg).toHaveProperty('TOTAL_NODES', 20);
+    expect(cfg).toHaveProperty('TOTAL_NODES', 15);
     expect(cfg).toHaveProperty('nodeRadius', 30);
   });
 
@@ -23,7 +23,7 @@ describe('Configuration', () => {
   });
 
   test('should have wall configuration', () => {
-    expect(cfg).toHaveProperty('WALL_COUNT', 50);
+    expect(cfg).toHaveProperty('WALL_COUNT', 80);
     expect(cfg).toHaveProperty('WALL_COLOR');
     expect(cfg).toHaveProperty('WALL_WIDTH', 5);
   });

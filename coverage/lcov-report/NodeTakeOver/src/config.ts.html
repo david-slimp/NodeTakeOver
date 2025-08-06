@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>6/8</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>6/8</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line medium'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -146,7 +146,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -198,35 +198,35 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { GameConfig, SeededRandomGenerator } from './types/config';
 &nbsp;
 /**
  * Main game configuration object with default values.
  * Contains all the game parameters and settings.
  */
-export const cfg: GameConfig = {
+export const cfg: GameConfig = <span class="cstat-no" title="statement not covered" >{</span>
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.3.0',
+    VERSION: '0.3.1',
 &nbsp;
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
@@ -235,13 +235,13 @@ export const cfg: GameConfig = {
     seed: 1234,
 &nbsp;
     // Node configuration
-    TOTAL_NODES: 20, // maybe only 10 for phone?
+    TOTAL_NODES: 15, // maybe only 10 for phone?
     MIN_DISTANCE: 70, // Minimum distance between nodes
     nodeRadius: 30,
     UNIT_DISPATCH_FREQUENCY: 10, // generally 1-10 (1=1/10sec  10=10/10sec)
 &nbsp;
     // Wall configuration
-    WALL_COUNT: 50, // reset based on screen size
+    WALL_COUNT: 80, // reset based on screen size
     wallMaxLength: 10, // reset based on screen size
     WALL_COLOR: '#555',
     WALL_WIDTH: 5,
@@ -274,26 +274,26 @@ export const cfg: GameConfig = {
  * @param {number} seed - The seed value for the random number generator.
  * @returns {SeededRandomGenerator} A function that generates random numbers based on the seed.
  */
-export function seededRandomGenerator(seed: number): SeededRandomGenerator {
-    let value = seed;
-    const rng = <span class="fstat-no" title="function not covered" >()</span>: number =&gt; {
+export function <span class="fstat-no" title="function not covered" >seededRandomGenerator(</span>seed: number): SeededRandomGenerator {
+    let value = <span class="cstat-no" title="statement not covered" >seed;</span>
+    const rng = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >()</span>: number =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        value = (value * 9301 + 49297) % 233280;</span>
 <span class="cstat-no" title="statement not covered" >        return value / 233280;</span>
     };
     // Add the seed property to the function
-    Object.defineProperty(rng, 'seed', {
+<span class="cstat-no" title="statement not covered" >    Object.defineProperty(rng, 'seed', {</span>
         value: seed,
         writable: false,
         enumerable: false,
         configurable: false
     });
-    return rng as SeededRandomGenerator;
+<span class="cstat-no" title="statement not covered" >    return rng as SeededRandomGenerator;</span>
 }
 &nbsp;
 /**
  * Default seeded RNG instance using the default seed from config.
  */
-export const rngInstance: SeededRandomGenerator = seededRandomGenerator(cfg.seed);
+export const rngInstance: SeededRandomGenerator = <span class="cstat-no" title="statement not covered" >seededRandomGenerator(cfg.seed);</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -301,7 +301,7 @@ export const rngInstance: SeededRandomGenerator = seededRandomGenerator(cfg.seed
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-08-06T07:02:23.024Z
+                at 2025-08-06T22:06:07.323Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

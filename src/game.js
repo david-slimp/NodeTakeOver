@@ -117,12 +117,12 @@ export class Game {
             cfg.width = window.innerWidth - 20;
             cfg.height = window.innerHeight - 100;
             cfg.nodeRadius = 20;
-            cfg.WALL_COUNT = 12;
+            // Keep the configured WALL_COUNT from config.ts
         } else {
             cfg.width = 800;
             cfg.height = 600;
             cfg.nodeRadius = 30;
-            cfg.WALL_COUNT = 52;
+            // Keep the configured WALL_COUNT from config.ts
         }
         this.canvas.width = cfg.width;
         this.canvas.height = cfg.height;
