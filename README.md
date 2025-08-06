@@ -4,7 +4,27 @@
 
 A strategic territory control game where players compete to take over nodes on a dynamic gameboard. Build your forces, capture neutral nodes, and defeat your opponent in this engaging strategy game.
 
+### Development
+
+#### Development Server
+
+During development, the application uses port `8000` by default. This is the standard port for local development.
+
+To start the development server:
+
+```bash
+npm run dev
+```
+
+This will:
+1. Build the application
+2. Start a local server on port 8000
+3. Automatically open the game in your default browser
+
+If port 8000 is in use, the script will attempt to free it up. If that fails, you'll need to manually stop whatever is using port 8000.
+
 ### Building for Production
+
 To create a production-ready build:
 
 ```bash

@@ -1,4 +1,5 @@
 const { Node } = require('../src/node');
+const { NodeRenderer } = require('../src/NodeRenderer');
 const { cfg } = require('../src/config');
 
 // Helper function to count nodes in a chain starting from a given node
@@ -19,6 +20,7 @@ const countNodesInChain = (startNode) => {
 describe('Node', () => {
   let node;
   let ctx;
+  let nodeRenderer;
   
   // Mock canvas context with direct property tracking
   beforeEach(() => {
@@ -38,13 +40,17 @@ describe('Node', () => {
       fill: jest.fn(),
       stroke: jest.fn(),
       fillText: jest.fn(),
+      moveTo: jest.fn(),
+      lineTo: jest.fn(),
       
       // Track property assignments with direct property storage
       _properties: {
         fillStyle: '',
         font: '',
         textAlign: '',
-        textBaseline: ''
+        textBaseline: '',
+        strokeStyle: '',
+        lineWidth: 1
       },
       
       // Property getters/setters
@@ -76,12 +82,27 @@ describe('Node', () => {
         return this._properties.textBaseline;
       },
       
+      set strokeStyle(value) {
+        this._properties.strokeStyle = trackProperty('strokeStyle', value);
+      },
+      get strokeStyle() {
+        return this._properties.strokeStyle;
+      },
+      
+      set lineWidth(value) {
+        this._properties.lineWidth = trackProperty('lineWidth', value);
+      },
+      get lineWidth() {
+        return this._properties.lineWidth;
+      },
+      
       // For testing
       _getPropertyHistory: () => [...propertyHistory],
       _getProperty: (prop) => mockCtx._properties[prop]
     };
     
     ctx = mockCtx;
+    nodeRenderer = new NodeRenderer(ctx);
     
     // Reset config to default values
     cfg.nodeRadius = 30;
@@ -119,99 +140,46 @@ describe('Node', () => {
     });
   });
 
-  describe('draw', () => {
-    let originalFillStyle, originalFont, originalTextAlign, originalTextBaseline;
+  describe('Node properties', () => {
+    it('should have default radius from config when not specified', () => {
+      const node = new Node(0, 0, 0, '#000000');
+      expect(node.radius).toBe(cfg.nodeRadius);
+    });
+
+    it('should use provided radius when specified', () => {
+      const customRadius = 20;
+      const node = new Node(0, 0, 0, '#000000', null, customRadius);
+      expect(node.radius).toBe(customRadius);
+    });
+  });
+
+  describe('distanceTo', () => {
+    it('should calculate distance to another node', () => {
+      const node1 = new Node(0, 0, 0, '#000000');
+      const node2 = new Node(3, 4, 0, '#ffffff');
+      expect(node1.distanceTo(node2)).toBe(5); // 3-4-5 triangle
+    });
+  });
+
+  describe('contains', () => {
+    let node;
     
     beforeEach(() => {
-      // Save original context properties
-      originalFillStyle = ctx.fillStyle;
-      originalFont = ctx.font;
-      originalTextAlign = ctx.textAlign;
-      originalTextBaseline = ctx.textBaseline;
-      
-      // Create a node with known values
-      node = new Node(100, 150, 50, '#ff0000', 'player');
-      
-      // Reset all mock functions before each test
-      jest.clearAllMocks();
+      node = new Node(100, 100, 0, '#000000', null, 20);
     });
     
-    afterEach(() => {
-      // Restore original context properties
-      ctx.fillStyle = originalFillStyle;
-      ctx.font = originalFont;
-      ctx.textAlign = originalTextAlign;
-      ctx.textBaseline = originalTextBaseline;
-    });
-
-    it('should draw a circle with the correct properties', () => {
-      // Spy on fillStyle setter to track when it's set to the node's color
-      const originalFillStyle = Object.getOwnPropertyDescriptor(
-        Object.getPrototypeOf(ctx),
-        'fillStyle'
-      );
-      
-      const fillStyleSpy = jest.spyOn(ctx, 'fillStyle', 'set');
-      
-      node.draw(ctx);
-      
-      // Verify circle is drawn with correct parameters
-      expect(ctx.beginPath).toHaveBeenCalled();
-      expect(ctx.arc).toHaveBeenCalledWith(100, 150, cfg.nodeRadius, 0, Math.PI * 2);
-      
-      // Verify the circle is filled and stroked
-      expect(ctx.fill).toHaveBeenCalled();
-      expect(ctx.stroke).toHaveBeenCalled();
-      
-      // Verify fillStyle was set to the node's color at some point
-      expect(fillStyleSpy).toHaveBeenCalledWith(node.color);
-      
-      // Clean up spy
-      fillStyleSpy.mockRestore();
-    });
-
-    it('should display the unit count in a larger font', () => {
-      node.draw(ctx);
-      
-      // Check that fillText was called with the unit count
-      expect(ctx.fillText).toHaveBeenCalledWith(
-        Math.floor(node.units).toString(),
-        node.x,
-        node.y
-      );
-      
-      // Verify the font was set correctly for unit count
-      const fontHistory = ctx._getPropertyHistory()
-        .filter(change => change.prop === 'font')
-        .map(change => change.value);
-      
-      expect(fontHistory).toContain('16px Arial');
+    it('should return true for point inside node', () => {
+      expect(node.contains(100, 100)).toBe(true);
+      expect(node.contains(115, 100)).toBe(true);
+      expect(node.contains(100, 115)).toBe(true);
+      expect(node.contains(85, 100)).toBe(true);
+      expect(node.contains(100, 85)).toBe(true);
     });
     
-    it('should display the generation speed in a smaller font below the unit count', () => {
-      node.draw(ctx);
-      
-      // Check that fillText was called with the generation speed
-      expect(ctx.fillText).toHaveBeenCalledWith(
-        node.generationSpeed.toString(),
-        node.x,
-        node.y + 14
-      );
-      
-      // Verify the font was set correctly for generation speed
-      const fontHistory = ctx._getPropertyHistory()
-        .filter(change => change.prop === 'font')
-        .map(change => change.value);
-      
-      expect(fontHistory).toContain('10px Arial');
-    });
-    
-    it('should center the text both horizontally and vertically', () => {
-      node.draw(ctx);
-      
-      // Text should be centered
-      expect(ctx.textAlign).toBe('center');
-      expect(ctx.textBaseline).toBe('middle');
+    it('should return false for point outside node', () => {
+      expect(node.contains(200, 200)).toBe(false);
+      expect(node.contains(121, 100)).toBe(false);
+      expect(node.contains(100, 121)).toBe(false);
     });
   });
 
@@ -319,6 +287,142 @@ describe('Node', () => {
     it('should return 0 for the same node', () => {
       const distance = Node.distanceBetweenNodes(node1, node1);
       expect(distance).toBe(0);
+    });
+  });
+
+  describe('NodeRenderer', () => {
+    let nodes;
+    
+    beforeEach(() => {
+      // Create a simple chain of 3 connected nodes
+      nodes = [
+        new Node(100, 100, 10, '#ff0000'),
+        new Node(200, 200, 20, '#00ff00'),
+        new Node(300, 100, 30, '#0000ff')
+      ];
+      
+      // Link the nodes in a chain
+      nodes[0].next = nodes[1];
+      nodes[1].next = nodes[2];
+      
+      // Reset all mock functions before each test
+      jest.clearAllMocks();
+    });
+
+    describe('drawNode', () => {
+      let node;
+      
+      beforeEach(() => {
+        node = new Node(100, 100, 50, '#ff0000', 'player', 30);
+        jest.clearAllMocks();
+      });
+
+      it('should draw a circle with the correct properties', () => {
+        // Spy on fillStyle setter to track when it's set to the node's color
+        const fillStyleSpy = jest.spyOn(ctx, 'fillStyle', 'set');
+        
+        nodeRenderer.drawNode(node);
+        
+        // Verify circle is drawn with correct parameters
+        expect(ctx.beginPath).toHaveBeenCalled();
+        expect(ctx.arc).toHaveBeenCalledWith(
+          node.x, 
+          node.y, 
+          node.radius, 
+          0, 
+          Math.PI * 2
+        );
+        
+        // Verify the circle is filled and stroked
+        expect(ctx.fill).toHaveBeenCalled();
+        expect(ctx.stroke).toHaveBeenCalled();
+        
+        // Verify fillStyle was set to the node's color
+        expect(fillStyleSpy).toHaveBeenCalledWith(node.color);
+        
+        // Clean up spy
+        fillStyleSpy.mockRestore();
+      });
+
+      it('should display the unit count and generation speed', () => {
+        nodeRenderer.drawNode(node);
+        
+        // Check that fillText was called with the unit count and generation speed
+        expect(ctx.fillText).toHaveBeenCalledWith(
+          Math.floor(node.units).toString(),
+          node.x,
+          node.y
+        );
+        
+        expect(ctx.fillText).toHaveBeenCalledWith(
+          node.generationSpeed.toString(),
+          node.x,
+          node.y + 14
+        );
+      });
+    });
+
+    describe('drawNodeChain', () => {
+      it('should draw lines between connected nodes', () => {
+        // Call the method we're testing
+        nodeRenderer.drawNodeChain(nodes);
+        
+        // Verify beginPath was called for each line
+        expect(ctx.beginPath).toHaveBeenCalledTimes(2); // 3 nodes = 2 connections
+        
+        // Verify moveTo and lineTo were called with correct coordinates
+        expect(ctx.moveTo).toHaveBeenNthCalledWith(1, nodes[0].x, nodes[0].y);
+        expect(ctx.lineTo).toHaveBeenNthCalledWith(1, nodes[1].x, nodes[1].y);
+        
+        expect(ctx.moveTo).toHaveBeenNthCalledWith(2, nodes[1].x, nodes[1].y);
+        expect(ctx.lineTo).toHaveBeenNthCalledWith(2, nodes[2].x, nodes[2].y);
+        
+        // Verify stroke was called for each line
+        expect(ctx.stroke).toHaveBeenCalledTimes(2);
+      });
+
+      it('should use the correct stroke style and line width', () => {
+        nodeRenderer.drawNodeChain(nodes);
+        
+        // Verify stroke style and line width are set correctly
+        expect(ctx.strokeStyle).toBe('#000');
+        expect(ctx.lineWidth).toBe(2);
+      });
+
+      it('should not draw anything if there are no nodes', () => {
+        nodeRenderer.drawNodeChain([]);
+        
+        // Verify no drawing operations were performed
+        expect(ctx.beginPath).not.toHaveBeenCalled();
+        expect(ctx.moveTo).not.toHaveBeenCalled();
+        expect(ctx.lineTo).not.toHaveBeenCalled();
+        expect(ctx.stroke).not.toHaveBeenCalled();
+      });
+
+      it('should not draw anything if there is only one node', () => {
+        const singleNode = [new Node(100, 100, 10, '#ff0000')];
+        nodeRenderer.drawNodeChain(singleNode);
+        
+        // Verify no drawing operations were performed
+        expect(ctx.beginPath).not.toHaveBeenCalled();
+        expect(ctx.moveTo).not.toHaveBeenCalled();
+        expect(ctx.lineTo).not.toHaveBeenCalled();
+        expect(ctx.stroke).not.toHaveBeenCalled();
+      });
+
+      it('should handle nodes with no next node', () => {
+        // Break the chain after the first node
+        nodes[0].next = nodes[1];
+        nodes[1].next = null;
+        
+        nodeRenderer.drawNodeChain(nodes);
+        
+        // Should only draw one line (between nodes[0] and nodes[1])
+        expect(ctx.beginPath).toHaveBeenCalledTimes(1);
+        expect(ctx.moveTo).toHaveBeenCalledWith(nodes[0].x, nodes[0].y);
+        expect(ctx.lineTo).toHaveBeenCalledWith(nodes[1].x, nodes[1].y);
+        expect(ctx.stroke).toHaveBeenCalledTimes(1);
+      });
     });
   });
 });

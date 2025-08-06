@@ -18,7 +18,9 @@
         "prebuild": "npm run clean && tsc",
         "build": "mkdir -p dist && tsc && cp -r src/*.js dist/ 2>/dev/null || true && cp -r src/types dist/ 2>/dev/null || true && cp -r index.html style.css screenshot.png README.md CHANGELOG.md LICENSE dist/ && cp main.js dist/ 2>/dev/null || true && (cp -r assets/ dist/ 2>/dev/null || true) && cp -n .gitignore dist/ 2>/dev/null || true && node fix-imports.js",
         "postbuild": "echo '✅ Build complete! The dist/ directory is ready for deployment.' && echo '📁 Contents of dist/:' && ls -la dist/",
-        "dev": "npm run build && echo 'Current working directory:' && pwd && echo 'Starting server from:' && (cd dist && pwd) && python3 -m http.server 8000 --directory dist",
+        "ensure-port": "node scripts/ensure-port-8000.js",
+        "dev": "npm run build && npm run ensure-port && echo '🚀 Starting development server on port 8000...' && (cd dist && python3 -m http.server 8000 --directory .)",
+        "dev:test": "npm run build && npm test -- __tests__/Node.test.js && npm run smoke-test",
         "start": "npm run dev"
     },
     "repository": {

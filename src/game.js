@@ -2,10 +2,11 @@
 
 import {cfg, rngInstance, seededRandomGenerator} from './config';
 import {Node} from './node';
+import {NodeRenderer} from './NodeRenderer';
 import {Wall} from './wall';
 
 export class Game {
-    constructor(canvasId, seed = null) {
+    constructor(canvasId, seed = null, debugMode = false) {
         this.seed = seed || Date.now();
         cfg.seed = this.seed;
         // Create a new RNG instance with the provided seed
@@ -22,6 +23,7 @@ export class Game {
 
         // Game variables
         this.ctx = this.canvas.getContext('2d');
+        this.nodeRenderer = new NodeRenderer(this.ctx);
         this.config = {};
         this.attackAnimations = []; // Track active attack animations
         this.activeTimeouts = []; // Track active timeouts for cleanup
@@ -48,6 +50,9 @@ export class Game {
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
+        
+        // Debug mode flag - passed from main.js to persist across restarts
+        this.debugMode = debugMode;
 
         // final setup
         this.setGameboardDimensions();
@@ -55,42 +60,56 @@ export class Game {
     }
 
     destroy() {
-        // Clean up event listeners
-        if (this.boundHandleKeydown) {
-            document.removeEventListener('keydown', this.boundHandleKeydown);
-        }
-        // Clear any active timeouts
+        console.log('Destroying game instance...');
+        
+        // Mark game as inactive to prevent any further updates
+        this.gameActive = false;
+        this.isPaused = true;
+        
+        // Clear any active timeouts first
         this.clearActiveTimeouts();
-        // Cancel the game loop
+        
+        // Cancel any pending animation frames
         if (this.gameLoopId) {
             cancelAnimationFrame(this.gameLoopId);
             this.gameLoopId = null;
         }
-        // Cancel any pending animation frame
-        cancelAnimationFrame(this.gameLoopId);
         
-        // Remove all event listeners
+        // Clean up event listeners
+        if (this.boundHandleKeydown) {
+            document.removeEventListener('keydown', this.boundHandleKeydown);
+            this.boundHandleKeydown = null;
+        }
+        
+        // Remove all pointer event listeners
         if (this.boundHandlePointerDown) {
             this.canvas.removeEventListener('mousedown', this.boundHandlePointerDown);
             this.canvas.removeEventListener('touchstart', this.boundHandlePointerDown);
+            this.boundHandlePointerDown = null;
         }
         if (this.boundHandlePointerUp) {
             this.canvas.removeEventListener('mouseup', this.boundHandlePointerUp);
             this.canvas.removeEventListener('touchend', this.boundHandlePointerUp);
+            this.boundHandlePointerUp = null;
         }
         
-        // Reset game state
-        this.gameActive = false;
-        this.isPaused = true;
+        // Clear references to DOM elements
         this.selectedNode = null;
+        
+        // Clear any active animations
         this.attackAnimations = [];
         
-        // Clear canvas
+        // Clear the canvas
         if (this.ctx) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         }
         
-        console.log('Game destroyed and resources cleaned up');
+        // Force garbage collection (where supported)
+        if (window.gc) {
+            window.gc();
+        }
+        
+        console.log('Game instance destroyed and resources cleaned up');
     }
 
     setGameboardDimensions() {
@@ -141,7 +160,7 @@ export class Game {
 
         // SET UP Node Chain
         this.nodechain = Node.createNodeChain(this.nodes);
-        Node.drawNodeChain(this.ctx, this.nodes);
+        this.nodeRenderer.drawNodeChain(this.nodes);
 
         // SET UP Walls
         this.walls = Wall.generateWalls(
@@ -392,6 +411,14 @@ export class Game {
             return;
         }
 
+        // Toggle debug mode with '?'
+        if (event.key === '?') {
+            event.preventDefault();
+            this.debugMode = !this.debugMode;
+            console.log(`Debug mode ${this.debugMode ? 'enabled' : 'disabled'}`);
+            return;
+        }
+
         // Handle other keys when not paused
         switch (event.key.toLowerCase()) {
             case 'r':
@@ -458,6 +485,12 @@ export class Game {
     }
 
     gameLoop(timestamp) {
+        // If game is no longer active, don't schedule another frame
+        if (!this.gameActive) {
+            console.log('Game loop ending (game no longer active)');
+            return;
+        }
+
         if (!this.lastFrameTime) this.lastFrameTime = timestamp;
         const deltaTime = (timestamp - this.lastFrameTime) / 1000; // Convert to seconds
         this.lastFrameTime = timestamp;
@@ -467,9 +500,14 @@ export class Game {
             this.updateAttackAnimations(deltaTime);
             this.checkGameOver();
         }
+        
         // Always draw, even when paused, to show the pause overlay
         this.draw();
-        this.gameLoopId = requestAnimationFrame((ts) => this.gameLoop(ts));
+        
+        // Only request next frame if game is still active
+        if (this.gameActive) {
+            this.gameLoopId = requestAnimationFrame((ts) => this.gameLoop(ts));
+        }
     }
 
     updateGameState(deltaTime) {
@@ -531,14 +569,16 @@ export class Game {
         this.ctx.fillStyle = '#f0f0f0';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw node connections
-        Node.drawNodeChain(this.ctx, this.nodes);
+        // Draw node connections in debug mode
+        if (this.debugMode) {
+            this.nodeRenderer.drawNodeChain(this.nodes);
+        }
         
         // Draw walls
         this.walls.forEach(wall => wall.draw(this.ctx));
         
         // Draw nodes
-        this.nodes.forEach(node => node.draw(this.ctx));
+        this.nodes.forEach(node => this.nodeRenderer.drawNode(node));
         
         // Draw attack animations
         this.drawAttackAnimations();

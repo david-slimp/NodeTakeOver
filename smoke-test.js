@@ -1,8 +1,10 @@
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, exec } = require('child_process');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { createRequire } = require('module');
+const util = require('util');
+const execPromise = util.promisify(exec);
 const requireFromDist = createRequire(path.resolve('dist/'));
 
 const PORT = 8000;
@@ -124,21 +126,117 @@ async function checkModuleExports(modulePath, expectedExports) {
   }
 }
 
+// Check if a process is using the specified port
+async function isPortInUse(port) {
+  try {
+    // Try to create a server on the port
+    return new Promise((resolve) => {
+      const server = require('net').createServer()
+        .once('error', () => resolve(true))
+        .once('listening', () => {
+          server.close();
+          resolve(false);
+        })
+        .listen(port);
+    });
+  } catch (error) {
+    return true; // Assume port is in use if there's an error
+  }
+}
+
+// Kill process using the specified port
+async function killProcessOnPort(port) {
+  try {
+    console.log(`🔄 Checking for processes on port ${port}...`);
+    
+    let command;
+    if (process.platform === 'win32') {
+      // Windows
+      const { stdout } = await execPromise(`netstat -ano | findstr :${port}`);
+      const matches = stdout.trim().split('\n');
+      const pids = [];
+      
+      matches.forEach(line => {
+        const match = line.trim().split(/\s+/);
+        if (match.length > 4) {
+          pids.push(match[4]);
+        }
+      });
+      
+      if (pids.length > 0) {
+        console.log(`Found processes on port ${port}, killing PIDs: ${pids.join(', ')}`);
+        for (const pid of pids) {
+          try {
+            await execPromise(`taskkill /F /PID ${pid}`);
+          } catch (e) {
+            console.warn(`Warning: Could not kill process ${pid}:`, e.message);
+          }
+        }
+      }
+    } else {
+      // Linux/MacOS
+      try {
+        // Try to find and kill the process
+        await execPromise(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`);
+      } catch (error) {
+        if (!error.message.includes('No such process')) {
+          throw error;
+        }
+      }
+    }
+    
+    // Give the OS a moment to release the port
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return true;
+  } catch (error) {
+    console.warn(`⚠️  Could not kill process on port ${port}:`, error.message);
+    return false;
+  }
+}
+
 // Main function
 async function runSmokeTest() {
+  let server;
+  
   try {
     // Check dist directory
     checkDistDirectory();
 
+    // Check if port is in use and kill existing process if needed
+    if (await isPortInUse(PORT)) {
+      console.log(`⚠️  Port ${PORT} is in use. Attempting to free it up...`);
+      await killProcessOnPort(PORT);
+      
+      // Verify port is now free
+      if (await isPortInUse(PORT)) {
+        throw new Error(`Could not free up port ${PORT}. Please close any applications using this port.`);
+      }
+      console.log(`✅ Successfully freed up port ${PORT}`);
+    }
+
     // Start the server
-    console.log('🚀 Starting server...');
-    const server = spawn('python3', ['-m', 'http.server', PORT, '--directory', 'dist'], {
+    console.log(`🚀 Starting server on port ${PORT}...`);
+    server = spawn('python3', ['-m', 'http.server', PORT, '--directory', 'dist'], {
       stdio: 'inherit',
       shell: true
     });
 
-    // Wait for server to start
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait for server to start with retry logic
+    const maxRetries = 5;
+    let retryCount = 0;
+    let serverReady = false;
+    
+    while (retryCount < maxRetries && !serverReady) {
+      try {
+        await checkServer();
+        serverReady = true;
+      } catch (error) {
+        retryCount++;
+        if (retryCount >= maxRetries) throw error;
+        console.log(`⏳ Waiting for server to start (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
 
     // Check server and URLs
     await checkServer();
@@ -175,11 +273,21 @@ async function runSmokeTest() {
     }
 
     console.log('\n🎉 Smoke test completed successfully!');
-    process.exit(0);
+    console.log(`🌐 Server is still running at http://localhost:${PORT}`);
+    console.log('Press Ctrl+C to stop the server');
+    
+    // Keep the server running by not killing it
+    // and not calling process.exit()
     
   } catch (error) {
     console.error('\n❌ Smoke test failed:');
     console.error(error.message);
+    
+    // Ensure server is killed on failure
+    if (server) {
+      server.kill('SIGTERM');
+    }
+    
     process.exit(1);
   }
 }

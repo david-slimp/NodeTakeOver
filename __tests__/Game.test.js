@@ -19,7 +19,7 @@ HTMLCanvasElement.prototype.getContext = jest.fn(() => {
   return new CanvasRenderingContext2D();
 });
 
-import { Game } from '../game.js';
+import { Game } from '../src/game';
 
 describe('Game', () => {
   let game;
@@ -31,6 +31,26 @@ describe('Game', () => {
     // Mock console.log to prevent test output clutter
     global.console.log = jest.fn();
     global.console.error = jest.fn();
+    
+    // Mock config values that might be used during initialization
+    jest.mock('../src/config', () => ({
+      cfg: {
+        VERBOSE: 0,
+        WALL_COLOR: '#000000',
+        WALL_WIDTH: 2,
+        width: 800,
+        height: 600,
+        nodeRadius: 20,
+        wallMaxLength: 100,
+        TOTAL_NODES: 10
+      },
+      rngInstance: {
+        random: jest.fn().mockReturnValue(0.5)
+      },
+      seededRandomGenerator: jest.fn().mockImplementation(() => ({
+        random: () => 0.5
+      }))
+    }));
     
     // Initialize game with fixed seed for predictable tests
     game = new Game('gameCanvas', 12345);

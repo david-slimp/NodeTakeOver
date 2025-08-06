@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.0] - 2025-08-05
+
+### Added
+- Migrated Node class to TypeScript for better type safety and maintainability
+- Created new NodeRenderer class to separate rendering logic from game logic
+- Added comprehensive test coverage for Node class and NodeRenderer
+- Implemented debug mode with '?' key toggle for node chain visualization
+- Added automated smoke tests for build verification
+- New dev:test npm script for one-command build, test, and server start
+
+### Fixed
+- Fixed issue with continuous drawNodeChain rendering after UI restart
+- Fixed port handling in smoke tests for cross-platform compatibility
+- Properly handle server process cleanup and restart
+- Fixed debug mode persistence across game restarts
+
+### Changed
+- Separated rendering logic from Node class into dedicated NodeRenderer
+- Improved code organization and type safety with TypeScript
+- Enhanced test automation and reliability
+- Updated build process to handle TypeScript compilation
+
 ## [0.2.2] - 2025-08-04
 
 ### Fixed
