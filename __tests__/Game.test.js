@@ -2,6 +2,11 @@
 import { jest } from '@jest/globals';
 import { cfg } from '../src/config';
 
+// Keep Game.initGame fast/deterministic in unit tests.
+// These tests largely stub/mutate game state directly and don't need full wall generation.
+cfg.WALL_COUNT = 0;
+cfg.TOTAL_NODES = 0;
+
 // Simple canvas mock for non-DOM tests
 const createMockCanvas = () => ({
   getContext: () => ({
@@ -36,25 +41,7 @@ global.cancelAnimationFrame = jest.fn(id => {
 });
 
 // Import the Game class
-import { Game } from '../src/game.js';
-
-// Mock the config module
-jest.mock('../src/config', () => ({
-  cfg: {
-    width: 800,
-    height: 600,
-    nodeRadius: 20,
-    PLAYER_COLOR: '#9c27b0',
-    COMPUTER_COLOR: '#f44336',
-    UNCONTROLLED_COLOR: '#9e9e9e',
-    WALL_COLOR: '#000000',
-    WALL_WIDTH: 2
-  },
-  rngInstance: {
-    random: () => 0.5
-  },
-  seededRandomGenerator: () => () => 0.5
-}));
+import { Game } from '../src/game';
 
 // Mock console to prevent test output clutter
 global.console.log = jest.fn();
@@ -883,32 +870,31 @@ describe('Game', () => {
 
     test('should display game over message and update UI', () => {
       const testGame = new Game('gameCanvas', 12345);
-      
-      // Set up test DOM elements
-      document.body.innerHTML = `
-        <div id="statusText"></div>
-        <div id="playerGold"></div>
-        <div id="computerGold"></div>
-        <button id="restartButton" style="display: none;"></button>
-      `;
-      
+
       // Set test gold values
       testGame.playerGold = 50;
       testGame.computerGold = 30;
       
+      // Verify UI renderer is invoked (Game no longer writes directly into DOM)
+      const showGameOverMock = jest
+        .spyOn(testGame.uiRenderer, 'showGameOver')
+        .mockImplementation(() => {});
+
       // Test game over
       testGame.displayGameOver('Test Game Over');
       
       // Verify game state was updated
       expect(testGame.gameActive).toBe(false);
       expect(testGame.attackAnimations).toEqual([]);
+
+      expect(showGameOverMock).toHaveBeenCalledWith(
+        'Test Game Over',
+        50,
+        30,
+        expect.any(Number),
+      );
       
-      // Verify UI was updated
-      expect(document.getElementById('statusText').textContent).toBe('Test Game Over');
-      expect(document.getElementById('playerGold').textContent).toBe('Player Gold: 50');
-      expect(document.getElementById('computerGold').textContent).toBe('Computer Gold: 30');
-      expect(document.getElementById('restartButton').style.display).toBe('inline-block');
-      
+      showGameOverMock.mockRestore();
       testGame.destroy();
     });
 
@@ -1057,6 +1043,7 @@ describe('Game', () => {
       };
       
       testGame.nodes = [playerNode, computerNode, targetNode];
+      testGame.gameActive = true;
       
       // Mock dependencies
       testGame.sendUnits = jest.fn();
@@ -1126,18 +1113,15 @@ describe('Game', () => {
 
     test('should display game over message and update UI', () => {
       const testGame = new Game('gameCanvas', 12345);
-      
-      // Set up test DOM elements
-      document.body.innerHTML = `
-        <div id="statusText"></div>
-        <div id="playerGold"></div>
-        <div id="computerGold"></div>
-        <button id="restartButton" style="display: none;"></button>
-      `;
-      
+
       // Set test gold values
       testGame.playerGold = 50;
       testGame.computerGold = 30;
+
+      // Verify UI renderer is invoked (Game no longer writes directly into DOM)
+      const showGameOverMock = jest
+        .spyOn(testGame.uiRenderer, 'showGameOver')
+        .mockImplementation(() => {});
       
       // Test game over
       testGame.displayGameOver('Test Game Over');
@@ -1145,12 +1129,15 @@ describe('Game', () => {
       // Verify game state was updated
       expect(testGame.gameActive).toBe(false);
       expect(testGame.attackAnimations).toEqual([]);
-      
-      // Verify UI was updated
-      expect(document.getElementById('statusText').textContent).toBe('Test Game Over');
-      expect(document.getElementById('playerGold').textContent).toBe('Player Gold: 50');
-      expect(document.getElementById('computerGold').textContent).toBe('Computer Gold: 30');
-      expect(document.getElementById('restartButton').style.display).toBe('inline-block');
+
+      expect(showGameOverMock).toHaveBeenCalledWith(
+        'Test Game Over',
+        50,
+        30,
+        expect.any(Number),
+      );
+
+      showGameOverMock.mockRestore();
       
       testGame.destroy();
     });
@@ -1300,6 +1287,7 @@ describe('Game', () => {
       };
       
       testGame.nodes = [playerNode, computerNode, targetNode];
+      testGame.gameActive = true;
       
       // Mock dependencies
       testGame.sendUnits = jest.fn();

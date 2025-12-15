@@ -2,6 +2,15 @@
  * UIRenderer - Handles all UI-related rendering and interactions
  */
 export class UIRenderer {
+    overlay: HTMLDivElement;
+    hud: HTMLDivElement;
+    statusText: HTMLDivElement;
+    playerGoldElement: HTMLDivElement;
+    computerGoldElement: HTMLDivElement;
+    seedInput: HTMLInputElement;
+    restartButton: HTMLButtonElement;
+    restartCallback: ((seed: number | null) => void) | null;
+
     constructor() {
         this.overlay = this.createOverlay();
         this.hud = this.createHUD();
@@ -24,9 +33,9 @@ export class UIRenderer {
     /**
      * Creates the main overlay element (used for game-over modal).
      */
-    createOverlay() {
+    private createOverlay(): HTMLDivElement {
         const existing = document.getElementById('gameOverlay');
-        const overlay = existing || document.createElement('div');
+        const overlay = (existing as HTMLDivElement | null) || document.createElement('div');
         overlay.id = 'gameOverlay';
         overlay.style.cssText = `
             position: absolute;
@@ -52,9 +61,9 @@ export class UIRenderer {
     /**
      * Creates a HUD container (always visible during play).
      */
-    createHUD() {
+    private createHUD(): HTMLDivElement {
         const existing = document.getElementById('gameHUD');
-        const hud = existing || document.createElement('div');
+        const hud = (existing as HTMLDivElement | null) || document.createElement('div');
         hud.id = 'gameHUD';
         hud.style.cssText = `
             display: flex;
@@ -80,9 +89,10 @@ export class UIRenderer {
     /**
      * Creates a status element inside the HUD.
      */
-    createStatusElement(id, className) {
+    private createStatusElement(id: string, className: string): HTMLDivElement {
         const existing = document.getElementById(id);
-        const element = existing || document.createElement('div');
+        const element =
+            (existing as HTMLDivElement | null) || document.createElement('div');
         element.id = id;
         element.className = className;
         element.style.margin = '0 6px';
@@ -93,13 +103,11 @@ export class UIRenderer {
     }
 
     /**
-     * Creates the seed input element
+     * Creates the seed input element.
      */
-    createSeedInput() {
-        const existing = document.getElementById('seedInput');
-        if (existing) {
-            return existing;
-        }
+    private createSeedInput(): HTMLInputElement {
+        const existing = document.getElementById('seedInput') as HTMLInputElement | null;
+        if (existing) return existing;
 
         const container = document.createElement('div');
         container.style.margin = '0 6px';
@@ -122,7 +130,7 @@ export class UIRenderer {
         return input;
     }
 
-    setupSeedInputHandlers() {
+    private setupSeedInputHandlers(): void {
         this.seedInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -131,7 +139,7 @@ export class UIRenderer {
         });
     }
 
-    triggerRestart() {
+    private triggerRestart(): void {
         if (typeof this.restartCallback !== 'function') return;
         const seed = this.getSeed();
         this.hideOverlay();
@@ -140,11 +148,12 @@ export class UIRenderer {
     }
 
     /**
-     * Creates the restart button
+     * Creates the restart button.
      */
-    createRestartButton() {
+    private createRestartButton(): HTMLButtonElement {
         const existing = document.getElementById('restartButton');
-        const button = existing || document.createElement('button');
+        const button =
+            (existing as HTMLButtonElement | null) || document.createElement('button');
         button.id = 'restartButton';
         button.textContent = 'Restart (R)';
         button.style.cssText = `
@@ -164,29 +173,30 @@ export class UIRenderer {
     }
 
     /**
-     * Initializes the UI elements
+     * Initializes the UI elements.
      */
-    initializeUI() {
+    private initializeUI(): void {
         this.hideOverlay();
     }
 
     /**
-     * Shows the game over screen
-     * @param {string} message - The game over message
-     * @param {number} playerGold - Player's gold amount
-     * @param {number} computerGold - Computer's gold amount
+     * Shows the game over screen.
      */
-    showGameOver(message, playerGold, computerGold, suggestedSeed = null) {
+    showGameOver(
+        message: string,
+        playerGold: number,
+        computerGold: number,
+        suggestedSeed: number | null = null,
+    ): void {
         this.statusText.textContent = message;
         this.playerGoldElement.textContent = `Player Gold: ${playerGold}`;
         this.computerGoldElement.textContent = `Computer Gold: ${computerGold}`;
         this.restartButton.textContent = 'Go (Enter)';
 
-        if (this.seedInput) {
-            if (typeof suggestedSeed === 'number' && Number.isFinite(suggestedSeed)) {
-                this.seedInput.value = String(suggestedSeed);
-            }
+        if (typeof suggestedSeed === 'number' && Number.isFinite(suggestedSeed)) {
+            this.seedInput.value = String(suggestedSeed);
         }
+
         // Temporarily render the HUD inside the overlay for game-over.
         if (this.hud.parentNode !== this.overlay) {
             this.overlay.appendChild(this.hud);
@@ -194,16 +204,14 @@ export class UIRenderer {
         this.overlay.style.display = 'flex';
 
         // Focus the input for faster restart.
-        if (this.seedInput) {
-            this.seedInput.focus();
-            this.seedInput.select?.();
-        }
+        this.seedInput.focus();
+        this.seedInput.select();
     }
 
     /**
-     * Hides the overlay
+     * Hides the overlay.
      */
-    hideOverlay() {
+    hideOverlay(): void {
         this.overlay.style.display = 'none';
         // Put the HUD back into the normal document flow.
         if (this.hud.parentNode === this.overlay) {
@@ -220,10 +228,9 @@ export class UIRenderer {
     }
 
     /**
-     * Gets the current seed value from the input
-     * @returns {number|null} The seed value or null if empty/invalid
+     * Gets the current seed value from the input.
      */
-    getSeed() {
+    getSeed(): number | null {
         const raw = (this.seedInput.value ?? '').toString().trim();
         if (!raw) return null;
         const parsed = Number.parseInt(raw, 10);
@@ -231,26 +238,24 @@ export class UIRenderer {
     }
 
     /**
-     * Clears the seed input
+     * Clears the seed input.
      */
-    clearSeed() {
+    clearSeed(): void {
         this.seedInput.value = '';
     }
 
     /**
-     * Sets up the restart callback
-     * @param {Function} callback - Function to call when restart is requested
+     * Sets up the restart callback.
      */
-    onRestart(callback) {
+    onRestart(callback: (seed: number | null) => void): void {
         this.restartCallback = callback;
         this.restartButton.onclick = () => this.triggerRestart();
     }
 
     /**
-     * Sets up keyboard shortcuts
-     * @param {Function} restartCallback - Function to call when restart is requested via keyboard
+     * Sets up keyboard shortcuts.
      */
-    setupKeyboardShortcuts(restartCallback) {
+    setupKeyboardShortcuts(restartCallback: (seed: number | null) => void): void {
         document.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'r') {
                 const seed = this.getSeed();
@@ -261,3 +266,4 @@ export class UIRenderer {
         });
     }
 }
+

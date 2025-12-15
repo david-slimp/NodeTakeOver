@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { Game } from '../src/game.js';
+import { Game } from '../src/game';
 
 describe('Game - DOM Tests', () => {
   let game;

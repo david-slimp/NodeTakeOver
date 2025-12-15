@@ -5,7 +5,7 @@
 // Import Jest globals
 import { jest } from '@jest/globals';
 import { cfg } from '../src/config';
-import { Game } from '../src/game.js';
+import { Game } from '../src/game';
 
 // Simple canvas mock
 class MockContext {
