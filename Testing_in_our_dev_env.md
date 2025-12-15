@@ -45,6 +45,12 @@ jest.setup.js        # Global test setup
 jest.config.js       # Jest configuration
 ```
 
+### Source vs Build Outputs
+
+- Source gameplay code lives in `src/` as TypeScript (`src/game.ts`, `src/main.ts`, etc).
+- `npm run build` compiles to `dist/` (browser-runnable `.js` with `.js` import specifiers fixed).
+- Node-based dev tools are written in TypeScript and compiled to `dist-tools/` via `tsconfig.tools.json`.
+
 ## Test Types
 
 ### 1. Unit Tests
@@ -132,7 +138,7 @@ describe('Component', () => {
 
 1. **DOM Testing**: Some DOM-related tests may fail due to missing JSDOM setup
 2. **Test Coverage**: Incomplete test coverage for some components
-3. **Type Safety**: Mixed JavaScript/TypeScript codebase
+3. **Type Safety**: Tests/config are still mostly JavaScript (core gameplay is now TypeScript)
 4. **Test Data**: No centralized test data/fixtures
 
 ## Future Improvements

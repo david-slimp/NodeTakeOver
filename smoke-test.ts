@@ -1,14 +1,16 @@
 import { spawn, exec } from 'child_process';
 import http from 'http';
 import fs from 'fs';
+import net from 'net';
 import path from 'path';
 import util from 'util';
 
 const execPromise = util.promisify(exec);
 
-const PORT = 8000;
+const PORT = Number.parseInt(process.env.PORT ?? '8000', 10);
 const HOST = 'localhost';
 const TIMEOUT = 10000; // 10 seconds
+const KEEP_SERVER = process.argv.includes('--keep-server');
 
 // Files that should exist in dist/
 const REQUIRED_FILES = [
@@ -70,6 +72,48 @@ function checkServer(): Promise<void> {
     });
 }
 
+function httpGetText(urlPath: string): Promise<{ statusCode: number; body: string }> {
+    return new Promise((resolve, reject) => {
+        const req = http.get(`http://${HOST}:${PORT}${urlPath}`, (res) => {
+            const statusCode = res.statusCode ?? 0;
+            let body = '';
+            res.setEncoding('utf8');
+            res.on('data', (chunk) => {
+                body += chunk;
+            });
+            res.on('end', () => resolve({ statusCode, body }));
+        });
+
+        req.on('error', (e) => reject(e));
+
+        req.setTimeout(TIMEOUT, () => {
+            req.destroy();
+            reject(new Error(`GET ${urlPath} timed out after ${TIMEOUT}ms`));
+        });
+    });
+}
+
+async function isLikelyNodeTakeOverServer(): Promise<boolean> {
+    try {
+        const indexRes = await httpGetText('/');
+        if (indexRes.statusCode !== 200) return false;
+
+        const hasCanvas = indexRes.body.includes('id="gameCanvas"');
+        const hasMainScript = indexRes.body.includes('src="main.js"');
+        if (!hasCanvas || !hasMainScript) return false;
+
+        const mainRes = await httpGetText('/main.js');
+        if (mainRes.statusCode !== 200) return false;
+
+        // Basic fingerprint: our entrypoint references the game canvas.
+        if (!mainRes.body.includes('gameCanvas')) return false;
+
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function checkUrl(urlPath: string): Promise<void> {
     return new Promise((resolve) => {
         const req = http.get(`http://${HOST}:${PORT}${urlPath}`, (res) => {
@@ -100,11 +144,18 @@ async function checkModuleExports(
             return true;
         }
 
-        const module = (await import(`file://${fullPath}`)) as Record<string, unknown>;
-
         const missingExports: string[] = [];
+        const source = fs.readFileSync(fullPath, 'utf8');
+
         for (const exportName of expectedExports) {
-            if (!(exportName in module)) {
+            const namedExportRe = new RegExp(
+                String.raw`\bexport\s+(?:class|function|const|let|var)\s+${exportName}\b`,
+            );
+            const exportListRe = new RegExp(
+                String.raw`\bexport\s*\{[^}]*\b${exportName}\b[^}]*\}`,
+            );
+
+            if (!namedExportRe.test(source) && !exportListRe.test(source)) {
                 missingExports.push(exportName);
             }
         }
@@ -112,10 +163,6 @@ async function checkModuleExports(
         if (missingExports.length > 0) {
             console.error(
                 `❌ ${modulePath} - Missing exports: ${missingExports.join(', ')}`,
-            );
-            console.log(
-                `   Available exports:`,
-                Object.keys(module).filter((k) => k !== '__esModule'),
             );
             return false;
         }
@@ -129,84 +176,69 @@ async function checkModuleExports(
     }
 }
 
-async function isPortInUse(port: number): Promise<boolean> {
-    try {
-        return await new Promise((resolve) => {
-            const server = require('net')
-                .createServer()
-                .once('error', () => resolve(true))
-                .once('listening', () => {
-                    server.close();
-                    resolve(false);
-                })
-                .listen(port);
+type PortStatus = 'available' | 'in_use' | 'permission_denied';
+
+async function getPortStatus(port: number): Promise<PortStatus> {
+    return await new Promise((resolve) => {
+        const server = net.createServer();
+
+        server.once('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') return resolve('in_use');
+            if (err.code === 'EACCES' || err.code === 'EPERM') {
+                return resolve('permission_denied');
+            }
+            // Default to "in_use" for unknown bind errors to avoid false "available".
+            return resolve('in_use');
         });
-    } catch {
-        return true;
-    }
-}
 
-async function killProcessOnPort(port: number): Promise<boolean> {
-    try {
-        console.log(`🔄 Checking for processes on port ${port}...`);
+        server.once('listening', () => {
+            server.close(() => resolve('available'));
+        });
 
-        if (process.platform === 'win32') {
-            const { stdout } = await execPromise(`netstat -ano | findstr :${port}`);
-            const matches = stdout.trim().split('\n');
-            const pids: string[] = [];
-
-            for (const line of matches) {
-                const match = line.trim().split(/\s+/);
-                if (match.length > 4) pids.push(match[4]);
-            }
-
-            if (pids.length > 0) {
-                console.log(`Found processes on port ${port}, killing PIDs: ${pids.join(', ')}`);
-                for (const pid of pids) {
-                    try {
-                        await execPromise(`taskkill /F /PID ${pid}`);
-                    } catch (e) {
-                        const msg = e instanceof Error ? e.message : String(e);
-                        console.warn(`Warning: Could not kill process ${pid}:`, msg);
-                    }
-                }
-            }
-        } else {
-            await execPromise(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`);
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        return true;
-    } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn(`⚠️  Could not kill process on port ${port}:`, message);
-        return false;
-    }
+        server.listen(port, HOST);
+    });
 }
 
 async function runSmokeTest(): Promise<void> {
     let server: ReturnType<typeof spawn> | undefined;
+    let startedServer = false;
 
     try {
         checkDistDirectory();
 
-        if (await isPortInUse(PORT)) {
-            console.log(`⚠️  Port ${PORT} is in use. Attempting to free it up...`);
-            await killProcessOnPort(PORT);
-
-            if (await isPortInUse(PORT)) {
+        const portStatus = await getPortStatus(PORT);
+        if (portStatus === 'permission_denied') {
+            const isNodeTakeOver = await isLikelyNodeTakeOverServer();
+            if (isNodeTakeOver) {
+                console.log(
+                    `ℹ️  Port ${PORT} is already serving NodeTakeOver; reusing existing server.`,
+                );
+            } else {
                 throw new Error(
-                    `Could not free up port ${PORT}. Please close any applications using this port.`,
+                    `Cannot bind to port ${PORT} due to insufficient permissions (EACCES/EPERM). ` +
+                        `If you have a NodeTakeOver dev server already running, keep it running and re-run; ` +
+                        `otherwise run with elevated permissions or set PORT to an available port.`,
                 );
             }
-            console.log(`✅ Successfully freed up port ${PORT}`);
+        } else if (portStatus === 'in_use') {
+            const isNodeTakeOver = await isLikelyNodeTakeOverServer();
+            if (!isNodeTakeOver) {
+                throw new Error(
+                    `Port ${PORT} is already in use by a server that does not look like NodeTakeOver. ` +
+                        `Stop the process using port ${PORT} and re-run, or set PORT to an available port.`,
+                );
+            }
+            console.log(
+                `ℹ️  Port ${PORT} is already serving NodeTakeOver; reusing existing server.`,
+            );
+        } else {
+            console.log(`🚀 Starting server on port ${PORT}...`);
+            server = spawn('python3', ['-m', 'http.server', String(PORT), '--directory', 'dist'], {
+                stdio: 'inherit',
+                shell: true,
+            });
+            startedServer = true;
         }
-
-        console.log(`🚀 Starting server on port ${PORT}...`);
-        server = spawn('python3', ['-m', 'http.server', String(PORT), '--directory', 'dist'], {
-            stdio: 'inherit',
-            shell: true,
-        });
 
         const maxRetries = 5;
         let retryCount = 0;
@@ -256,17 +288,30 @@ async function runSmokeTest(): Promise<void> {
         }
 
         console.log('\n🎉 Smoke test completed successfully!');
-        console.log(`🌐 Server is still running at http://localhost:${PORT}`);
-        console.log('Press Ctrl+C to stop the server');
+        console.log(`🌐 Verified at http://localhost:${PORT}`);
+
+        if (startedServer && server && !KEEP_SERVER) {
+            console.log('🧹 Stopping smoke-test server...');
+            server.kill('SIGTERM');
+            await new Promise<void>((resolve) => {
+                server?.once('exit', () => resolve());
+                setTimeout(() => resolve(), 2000);
+            });
+        } else if (startedServer && KEEP_SERVER) {
+            console.log(
+                `ℹ️  Server started by smoke-test left running due to --keep-server.`,
+            );
+        } else {
+            console.log(`ℹ️  Existing server was reused and left running.`);
+        }
     } catch (error) {
         console.error('\n❌ Smoke test failed:');
         const message = error instanceof Error ? error.message : String(error);
         console.error(message);
 
-        if (server) server.kill('SIGTERM');
+        if (startedServer && server) server.kill('SIGTERM');
         process.exit(1);
     }
 }
 
 runSmokeTest();
-

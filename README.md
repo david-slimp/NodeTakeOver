@@ -19,7 +19,7 @@ npm run dev
 This will:
 1. Build the application
 2. Start a local server on port 8000
-3. Automatically open the game in your default browser
+3. Serve the built game from `dist/`
 
 If port 8000 is in use, the script will attempt to free it up. If that fails, you'll need to manually stop whatever is using port 8000.
 
@@ -60,7 +60,7 @@ The game will be available at `https://<your-username>.github.io/NodeTakeOver/`
 For manual deployment to any web server:
 1. Run `npm run build`
 2. Upload the contents of the `dist` directory to your web server
-3. Ensure the server is configured to serve `index.html` for all routes (for client-side routing)
+3. Ensure the server serves `index.html` at `/`
 
 ### Development vs Production Files
 - **Development**: The root directory contains source files, configuration, and development tools
@@ -110,15 +110,17 @@ You can play the game online at: https://rock808.com/games/NodeTakeOver/
    ```
 
 2. Open `index.html` in your web browser to start playing!
+   - Recommended: `npm run dev` and visit `http://localhost:8000`
+   - Or: `npm run build` and open `dist/index.html`
 
 ## 🛠 Development
 
 ### Project Structure
 
 - `index.html` - Main game interface
-- `main.js` - Game initialization and main loop
-- `game.js` - Core game logic and state management
-- `config.js` - Game configuration and constants
+- `src/main.ts` - Game initialization and main loop (compiled to `dist/main.js`)
+- `src/game.ts` - Core game logic and state management (compiled to `dist/game.js`)
+- `src/config.ts` - Game configuration and constants (compiled to `dist/config.js`)
 - `style.css` - Game styling
 
 
