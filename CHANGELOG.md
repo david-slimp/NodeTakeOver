@@ -12,9 +12,13 @@
 - Simplified `main.js` startup to rely on config defaults and avoid direct DOM wiring for restart/seed
 - Updated `Game.displayGameOver` to delegate UI rendering to `UIRenderer` instead of writing directly into DOM
 - Adjusted page layout so the canvas is not clipped when HUD is present
+- Restart/lifecycle: `main.js` is now the single restart path and injects a shared `UIRenderer` into `Game`
+- Type cleanup: removed duplicate config types (`types/config.d.ts`), keeping `src/types/config.ts` as the source of truth
+- Gameplay tuning: set `PLAYER_UNIT_SPEED` and `COMPUTER_UNIT_SPEED` to the same slower value and stopped overriding speed at runtime
 
 ### Fixed
 - Restart flow now works reliably from both button click and Enter key in the seed field
+- Game lifecycle now starts exactly one `requestAnimationFrame` loop (no double-start from `initGame()`)
 
 ## [0.3.1] - 2025-08-06
 

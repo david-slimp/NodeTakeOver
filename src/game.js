@@ -33,7 +33,7 @@ export class Game {
         this.ctx = this.canvas.getContext('2d');
         this.nodeRenderer = new NodeRenderer(this.ctx);
         
-        // Make UIRenderer optional
+        // Make UIRenderer optional / injectable (recommended to pass a single instance from main.js)
         this.uiRenderer = options.uiRenderer || new UIRenderer();
         this.skipUIRenderer = options.skipUIRenderer || false;
         
@@ -146,7 +146,6 @@ export class Game {
         cfg.wallMaxLength = Math.min(cfg.width, cfg.height) * 0.4;
 
         cfg.UNIT_DISPATCH_FREQUENCY = 5;
-        cfg.PLAYER_UNIT_SPEED = 10;
     }
 
     start() {
@@ -156,56 +155,8 @@ export class Game {
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
-        
-        // Only set up UI callbacks if not skipped
-        if (!this.skipUIRenderer) {
-            this.setupUICallbacks();
-        }
-        
+
         this.startGameLoop();
-    }
-    
-    /**
-     * Sets up UI callbacks for the game
-     */
-    setupUICallbacks() {
-        // Only set up UI callbacks if UIRenderer is available
-        if (this.skipUIRenderer || !this.uiRenderer) return;
-        
-        // Set up restart callback
-        if (typeof this.uiRenderer.onRestart === 'function') {
-            this.uiRenderer.onRestart((seed) => {
-                this.restart(seed);
-            });
-        }
-        
-        // Set up keyboard shortcuts
-        if (typeof this.uiRenderer.setupKeyboardShortcuts === 'function') {
-            this.uiRenderer.setupKeyboardShortcuts((seed) => {
-                this.restart(seed);
-            });
-        }
-    }
-    
-    /**
-     * Restarts the game with an optional seed
-     * @param {string|null} seed - The seed to use for the new game, or null for random
-     */
-    restart(seed = null) {
-        // Clean up the current game
-        this.destroy();
-        
-        // Create a new game instance with the same canvas
-        const newGame = new Game('gameCanvas', seed, this.debugMode);
-        
-        // Copy over any necessary state
-        newGame.debugMode = this.debugMode;
-        
-        // Start the new game
-        newGame.start();
-        
-        // Return the new game instance in case it's needed
-        return newGame;
     }
 
     // Initialize the game
@@ -250,9 +201,6 @@ export class Game {
         // document.getElementById("muteButton").addEventListener("click", toggleMute);
 
         cfg.VERBOSE >= 2 && console.log('Game initialized');
-        console.log('BEFORE GAMELOOP');
-        this.startGameLoop();
-        console.log('AFTER GAMELOOP');
     }
 
     initializeBoard(totalNodes) {

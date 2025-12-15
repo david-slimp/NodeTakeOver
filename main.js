@@ -2,9 +2,11 @@
 
 import {Game} from './game.js';
 import {cfg} from './config.js';
+import {UIRenderer} from './UIRenderer.js';
 
 let game;
 let debugMode = false;
+const uiRenderer = new UIRenderer();
 
 function initGame(seed = cfg.seed) {
     if (game) {
@@ -12,7 +14,7 @@ function initGame(seed = cfg.seed) {
         debugMode = game.debugMode;
         game.destroy(); // Clean up any existing game state
     }
-    game = new Game('gameCanvas', seed, debugMode);
+    game = new Game('gameCanvas', seed, debugMode, {uiRenderer});
     game.start();
 }
 
@@ -25,4 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize the game with the configured default seed
     initGame(cfg.seed);
+
+    // Single restart path: UI triggers main.js to create the next Game instance.
+    uiRenderer.onRestart((seed) => initGame(seed));
+    uiRenderer.setupKeyboardShortcuts((seed) => initGame(seed));
 });
