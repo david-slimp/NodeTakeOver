@@ -43,6 +43,7 @@ pids/
 # ======================
 build/
 dist/
+dist-tools/
 out/
 lib-cov/
 .cache/
@@ -116,4 +117,4 @@ windsurf-workspace.json
 .dynamodb/
 .tern-port
 .vscode-test/
-
+test-screenshot.png
