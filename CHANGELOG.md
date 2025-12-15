@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.2] - 2025-12-15
+
+### Added
+- Centralized UI ownership in `UIRenderer` (HUD + game-over overlay)
+- Game-over restart UX: Enter-to-submit, visible "Go" button, suggested next seed (`seed + 1`)
+- Test coverage for the new UI ownership/restart behavior
+
+### Changed
+- Removed duplicate UI elements from `index.html` (UI is now created/managed by `UIRenderer`)
+- Simplified `main.js` startup to rely on config defaults and avoid direct DOM wiring for restart/seed
+- Updated `Game.displayGameOver` to delegate UI rendering to `UIRenderer` instead of writing directly into DOM
+- Adjusted page layout so the canvas is not clipped when HUD is present
+
+### Fixed
+- Restart flow now works reliably from both button click and Enter key in the seed field
+
 ## [0.3.1] - 2025-08-06
 
 ### Added

@@ -1,20 +1,28 @@
 // game.js
 
 import {cfg, rngInstance, seededRandomGenerator} from './config';
+import {UIRenderer} from './UIRenderer';
 import {Node} from './node';
 import {NodeRenderer} from './NodeRenderer';
 import {Wall} from './wall';
 
 export class Game {
-    constructor(canvasId, seed = null, debugMode = false) {
+    constructor(canvasId, seed = null, debugMode = false, options = {}) {
         this.seed = seed || Date.now();
         cfg.seed = this.seed;
         // Create a new RNG instance with the provided seed
         this.rng = seededRandomGenerator(this.seed);
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) {
-            console.error('Canvas element not found!');
-            return;
+        
+        // Allow canvas to be either an element or an ID string
+        if (typeof canvasId === 'string') {
+            this.canvas = document.getElementById(canvasId);
+            if (!this.canvas) {
+                console.error('Canvas element not found!');
+                return;
+            }
+        } else {
+            // Assume it's already a canvas element
+            this.canvas = canvasId;
         }
         
         // Track pause state and timing
@@ -24,6 +32,11 @@ export class Game {
         // Game variables
         this.ctx = this.canvas.getContext('2d');
         this.nodeRenderer = new NodeRenderer(this.ctx);
+        
+        // Make UIRenderer optional
+        this.uiRenderer = options.uiRenderer || new UIRenderer();
+        this.skipUIRenderer = options.skipUIRenderer || false;
+        
         this.config = {};
         this.attackAnimations = []; // Track active attack animations
         this.activeTimeouts = []; // Track active timeouts for cleanup
@@ -143,7 +156,56 @@ export class Game {
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
+        
+        // Only set up UI callbacks if not skipped
+        if (!this.skipUIRenderer) {
+            this.setupUICallbacks();
+        }
+        
         this.startGameLoop();
+    }
+    
+    /**
+     * Sets up UI callbacks for the game
+     */
+    setupUICallbacks() {
+        // Only set up UI callbacks if UIRenderer is available
+        if (this.skipUIRenderer || !this.uiRenderer) return;
+        
+        // Set up restart callback
+        if (typeof this.uiRenderer.onRestart === 'function') {
+            this.uiRenderer.onRestart((seed) => {
+                this.restart(seed);
+            });
+        }
+        
+        // Set up keyboard shortcuts
+        if (typeof this.uiRenderer.setupKeyboardShortcuts === 'function') {
+            this.uiRenderer.setupKeyboardShortcuts((seed) => {
+                this.restart(seed);
+            });
+        }
+    }
+    
+    /**
+     * Restarts the game with an optional seed
+     * @param {string|null} seed - The seed to use for the new game, or null for random
+     */
+    restart(seed = null) {
+        // Clean up the current game
+        this.destroy();
+        
+        // Create a new game instance with the same canvas
+        const newGame = new Game('gameCanvas', seed, this.debugMode);
+        
+        // Copy over any necessary state
+        newGame.debugMode = this.debugMode;
+        
+        // Start the new game
+        newGame.start();
+        
+        // Return the new game instance in case it's needed
+        return newGame;
     }
 
     // Initialize the game
@@ -816,12 +878,18 @@ export class Game {
 
     displayGameOver(message) {
         this.gameActive = false;
-        document.getElementById('statusText').innerText = message;
-        document.getElementById('playerGold').innerText =
-            `Player Gold: ${this.playerGold}`;
-        document.getElementById('computerGold').innerText =
-            `Computer Gold: ${this.computerGold}`;
-        document.getElementById('restartButton').style.display = 'inline-block';
+        if (!this.skipUIRenderer && this.uiRenderer && typeof this.uiRenderer.showGameOver === 'function') {
+            const currentSeed = Number(this.seed);
+            const suggestedSeed = Number.isFinite(currentSeed)
+                ? currentSeed + 1
+                : null;
+            this.uiRenderer.showGameOver(
+                message,
+                this.playerGold,
+                this.computerGold,
+                suggestedSeed,
+            );
+        }
         this.attackAnimations = [];
     }
 }

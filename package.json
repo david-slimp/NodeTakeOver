@@ -1,6 +1,6 @@
 {
     "name": "NodeTakeOver",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "description": "A strategy game where players take over nodes on a gameboard.",
     "main": "main.js",
     "scripts": {

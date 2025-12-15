@@ -7,7 +7,7 @@ import { GameConfig, SeededRandomGenerator } from './types/config';
 export const cfg: GameConfig = {
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.3.1',
+    VERSION: '0.3.2',
 
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster

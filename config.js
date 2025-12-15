@@ -5,7 +5,7 @@
 export const cfg = {
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.3.0',
+    VERSION: '0.3.2',
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
     width: 800,

@@ -6,7 +6,7 @@ import {cfg} from './config.js';
 let game;
 let debugMode = false;
 
-function initGame(seed = null) {
+function initGame(seed = cfg.seed) {
     if (game) {
         // Save the current debug state before destroying the game
         debugMode = game.debugMode;
@@ -23,19 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
         versionElement.textContent = `v${cfg.VERSION}`;
     }
 
-    // Show the restart button
-    document.getElementById('restartButton').style.display = 'inline-block';
-
-    // Initialize the game with the default seed
-    const defaultSeed = parseInt(
-        document.getElementById('seedInput').value,
-        10,
-    );
-    initGame(defaultSeed);
-
-    // Restart button logic
-    document.getElementById('restartButton').addEventListener('click', () => {
-        const seed = parseInt(document.getElementById('seedInput').value, 10);
-        initGame(seed);
-    });
+    // Initialize the game with the configured default seed
+    initGame(cfg.seed);
 });
