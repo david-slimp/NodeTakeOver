@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.2] - 2025-12-15
+
+### Added
+- Centralized UI ownership in `UIRenderer` (HUD + game-over overlay)
+- Game-over restart UX: Enter-to-submit, visible "Go" button, suggested next seed (`seed + 1`)
+- Test coverage for the new UI ownership/restart behavior
+- TypeScript entrypoint + tooling compilation:
+  - App entrypoint migrated to `src/main.ts` (compiled to `dist/main.js`)
+  - Tooling compiled via `tsconfig.tools.json` into `dist-tools/` (e.g. `fix-imports`, `smoke-test`, `browser-test`, `ensure-port`)
+
+### Changed
+- Removed duplicate UI elements from `index.html` (UI is now created/managed by `UIRenderer`)
+- Simplified app startup (now `src/main.ts`) to rely on config defaults and avoid direct DOM wiring for restart/seed
+- Updated `Game.displayGameOver` to delegate UI rendering to `UIRenderer` instead of writing directly into DOM
+- Adjusted page layout so the canvas is not clipped when HUD is present
+- Restart/lifecycle: `src/main.ts` is the single restart path and injects a shared `UIRenderer` into `Game`
+- Type cleanup: removed duplicate config types (`types/config.d.ts`), keeping `src/types/config.ts` as the source of truth
+- Migrated core gameplay modules to TypeScript (`src/game.ts`, `src/UIRenderer.ts`)
+- Migrated build/test scripts to TypeScript (`fix-imports.ts`, `smoke-test.ts`, `browser-test.ts`, `scripts/ensure-port-8000.ts`)
+- Legacy cleanup: removed unused root `test-config.js` and legacy duplicate modules (`config.js`, `node.js`)
+- Gameplay tuning: set `PLAYER_UNIT_SPEED` and `COMPUTER_UNIT_SPEED` to the same slower value and stopped overriding speed at runtime
+
+### Fixed
+- Restart flow now works reliably from both button click and Enter key in the seed field
+- Game lifecycle now starts exactly one `requestAnimationFrame` loop (no double-start from `initGame()`)
+
 ## [0.3.1] - 2025-08-06
 
 ### Added

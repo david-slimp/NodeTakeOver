@@ -1,200 +1,295 @@
-// game.js
+import { cfg, seededRandomGenerator } from './config';
+import { UIRenderer } from './UIRenderer';
+import { Node } from './node';
+import { NodeRenderer } from './NodeRenderer';
+import { Wall } from './wall';
+import type { SeededRandomGenerator } from './types/config';
+import type { NodeOwner } from './node';
 
-import {cfg, rngInstance, seededRandomGenerator} from './config';
-import {Node} from './node';
-import {NodeRenderer} from './NodeRenderer';
-import {Wall} from './wall';
+type CanvasLike = {
+    width: number;
+    height: number;
+    getContext: (contextId: '2d') => CanvasRenderingContext2D | null;
+    addEventListener: (...args: any[]) => void;
+    removeEventListener: (...args: any[]) => void;
+    getBoundingClientRect: () => { left: number; top: number };
+};
+
+type PointerLikeEvent = MouseEvent | TouchEvent;
+
+interface GameOptions {
+    uiRenderer?: InstanceType<typeof UIRenderer>;
+    skipUIRenderer?: boolean;
+}
+
+interface AttackAnimation {
+    fromNode: Node;
+    toNode: Node;
+    units: number;
+    color: string;
+    startX: number;
+    startY: number;
+    progress: number;
+    duration: number;
+    startTime: number;
+    completed: boolean;
+}
 
 export class Game {
-    constructor(canvasId, seed = null, debugMode = false) {
-        this.seed = seed || Date.now();
+    seed: number;
+    rng: SeededRandomGenerator;
+
+    canvas: CanvasLike;
+    ctx: CanvasRenderingContext2D;
+
+    nodeRenderer: NodeRenderer;
+    uiRenderer: InstanceType<typeof UIRenderer>;
+    skipUIRenderer: boolean;
+
+    pauseStartTime: number;
+    totalPausedTime: number;
+
+    attackAnimations: AttackAnimation[];
+    activeTimeouts: number[];
+
+    nodes: Node[];
+    nodechain: Node[];
+    walls: Wall[];
+
+    playerGold: number;
+    computerGold: number;
+
+    isMuted: boolean;
+    isPaused: boolean;
+    gameActive: boolean;
+
+    selectedNode: Node | null;
+    playerNode: Node | null;
+    computerNode: Node | null;
+
+    computerCanAct: boolean;
+    computerLastCaptureTime: number;
+
+    gameLoopId: number | null;
+
+    boundHandlePointerDown: ((event: PointerLikeEvent) => void) | null;
+    boundHandlePointerUp: ((event: PointerLikeEvent) => void) | null;
+    boundHandleKeydown: ((event: KeyboardEvent) => void) | null;
+
+    lastFrameTime: number;
+    continuousFlowTimer: number;
+    unitGenerationTimer: number;
+
+    debugMode: boolean;
+
+    constructor(
+        canvasId: string | CanvasLike | null,
+        seed: number | null = null,
+        debugMode = false,
+        options: GameOptions = {},
+    ) {
+        this.seed = seed ?? Date.now();
         cfg.seed = this.seed;
-        // Create a new RNG instance with the provided seed
         this.rng = seededRandomGenerator(this.seed);
-        this.canvas = document.getElementById(canvasId);
-        if (!this.canvas) {
-            console.error('Canvas element not found!');
-            return;
+
+        if (typeof canvasId === 'string') {
+            const el = document.getElementById(canvasId);
+            if (el && typeof (el as any).getContext === 'function') {
+                this.canvas = el as unknown as CanvasLike;
+            } else {
+                console.error('Canvas element not found or is not canvas-like');
+                this.canvas = document.createElement('canvas') as unknown as CanvasLike;
+            }
+        } else if (canvasId && typeof (canvasId as any).getContext === 'function') {
+            this.canvas = canvasId;
+        } else {
+            console.error('Canvas not provided; using fallback canvas for non-DOM use');
+            this.canvas = document.createElement('canvas') as unknown as CanvasLike;
         }
-        
-        // Track pause state and timing
+
         this.pauseStartTime = 0;
         this.totalPausedTime = 0;
 
-        // Game variables
-        this.ctx = this.canvas.getContext('2d');
+        const ctx = this.canvas.getContext('2d') || this.createFallbackContext();
+        this.ctx = ctx;
+
         this.nodeRenderer = new NodeRenderer(this.ctx);
-        this.config = {};
-        this.attackAnimations = []; // Track active attack animations
-        this.activeTimeouts = []; // Track active timeouts for cleanup
+
+        this.uiRenderer = options.uiRenderer || new UIRenderer();
+        this.skipUIRenderer = options.skipUIRenderer || false;
+
+        this.attackAnimations = [];
+        this.activeTimeouts = [];
+
         this.nodes = [];
         this.nodechain = [];
         this.walls = [];
+
         this.playerGold = 0;
         this.computerGold = 0;
-        this.attackAnimations = [];
+
         this.isMuted = false;
-        this.isPaused = false; // Track if game is paused
-        this.gameActive = false; // Track if game is active
+        this.isPaused = false;
+        this.gameActive = false;
+
         this.selectedNode = null;
-        this.computerCanAct = false; // Tracks if the computer can act, start off with little delay
-        this.computerLastCaptureTime = Date.now(); // Tracks the last capture time
+        this.playerNode = null;
+        this.computerNode = null;
+
+        this.computerCanAct = false;
+        this.computerLastCaptureTime = Date.now();
+
         this.gameLoopId = null;
-        
-        // Initialize bound event handlers
+
         this.boundHandlePointerDown = null;
         this.boundHandlePointerUp = null;
         this.boundHandleKeydown = null;
-        
-        // Delta time tracking
+
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
-        
-        // Debug mode flag - passed from main.js to persist across restarts
+
         this.debugMode = debugMode;
 
-        // final setup
         this.setGameboardDimensions();
-        console.log('INITGAME - A');
     }
 
-    destroy() {
-        console.log('Destroying game instance...');
-        
-        // Mark game as inactive to prevent any further updates
+    private createFallbackContext(): CanvasRenderingContext2D {
+        const noop = () => {};
+        return {
+            canvas: this.canvas as unknown as HTMLCanvasElement,
+            clearRect: noop,
+            fillRect: noop,
+            beginPath: noop,
+            arc: noop,
+            fill: noop,
+            stroke: noop,
+            moveTo: noop,
+            lineTo: noop,
+            fillText: noop,
+            save: noop,
+            restore: noop,
+            translate: noop,
+            scale: noop,
+            rotate: noop,
+            closePath: noop,
+            measureText: () => ({ width: 0 } as TextMetrics),
+            getImageData: (() => ({ data: new Uint8ClampedArray() } as ImageData)) as any,
+            putImageData: noop as any,
+            createImageData: (() => ({ data: new Uint8ClampedArray() } as ImageData)) as any,
+            setTransform: noop as any,
+            drawImage: noop as any,
+            font: '',
+            textAlign: 'center',
+            textBaseline: 'middle',
+            fillStyle: '#000',
+            strokeStyle: '#000',
+            lineWidth: 1,
+        } as unknown as CanvasRenderingContext2D;
+    }
+
+    destroy(): void {
         this.gameActive = false;
         this.isPaused = true;
-        
-        // Clear any active timeouts first
+
         this.clearActiveTimeouts();
-        
-        // Cancel any pending animation frames
-        if (this.gameLoopId) {
+
+        if (this.gameLoopId !== null) {
             cancelAnimationFrame(this.gameLoopId);
             this.gameLoopId = null;
         }
-        
-        // Clean up event listeners
+
         if (this.boundHandleKeydown) {
             document.removeEventListener('keydown', this.boundHandleKeydown);
             this.boundHandleKeydown = null;
         }
-        
-        // Remove all pointer event listeners
+
         if (this.boundHandlePointerDown) {
-            this.canvas.removeEventListener('mousedown', this.boundHandlePointerDown);
-            this.canvas.removeEventListener('touchstart', this.boundHandlePointerDown);
+            this.canvas.removeEventListener(
+                'mousedown',
+                this.boundHandlePointerDown as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
+                'touchstart',
+                this.boundHandlePointerDown as unknown as EventListener,
+            );
             this.boundHandlePointerDown = null;
         }
+
         if (this.boundHandlePointerUp) {
-            this.canvas.removeEventListener('mouseup', this.boundHandlePointerUp);
-            this.canvas.removeEventListener('touchend', this.boundHandlePointerUp);
+            this.canvas.removeEventListener(
+                'mouseup',
+                this.boundHandlePointerUp as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
+                'touchend',
+                this.boundHandlePointerUp as unknown as EventListener,
+            );
             this.boundHandlePointerUp = null;
         }
-        
-        // Clear references to DOM elements
+
         this.selectedNode = null;
-        
-        // Clear any active animations
         this.attackAnimations = [];
-        
-        // Clear the canvas
-        if (this.ctx) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        const maybeGc = (window as unknown as { gc?: () => void }).gc;
+        if (typeof maybeGc === 'function') {
+            maybeGc();
         }
-        
-        // Force garbage collection (where supported)
-        if (window.gc) {
-            window.gc();
-        }
-        
-        console.log('Game instance destroyed and resources cleaned up');
     }
 
-    setGameboardDimensions() {
+    setGameboardDimensions(): void {
         if (window.innerWidth < 600) {
             cfg.width = window.innerWidth - 20;
             cfg.height = window.innerHeight - 100;
             cfg.nodeRadius = 20;
-            // Keep the configured WALL_COUNT from config.ts
         } else {
             cfg.width = 800;
             cfg.height = 600;
             cfg.nodeRadius = 30;
-            // Keep the configured WALL_COUNT from config.ts
         }
         this.canvas.width = cfg.width;
         this.canvas.height = cfg.height;
-        console.log('Canvas Width:', this.canvas.width);
-        console.log('Canvas Height:', this.canvas.height);
 
-        // Now that we have the screen size we can adjust the wallMaxLength based on that
         cfg.wallMaxLength = Math.min(cfg.width, cfg.height) * 0.4;
-
         cfg.UNIT_DISPATCH_FREQUENCY = 5;
-        cfg.PLAYER_UNIT_SPEED = 10;
     }
 
-    start() {
-        console.log('INITGAME - B');
+    start(): void {
         this.initGame();
-        // Reset timers
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
         this.startGameLoop();
     }
 
-    // Initialize the game
-    initGame() {
-        cfg.VERBOSE >= 2 && console.log('starting initGame');
-        // Clear any existing game loop
-        cancelAnimationFrame(this.gameLoopId);
+    initGame(): void {
         this.isPaused = false;
-        this.gameActive = true; // Tracks if the game is active
+        this.gameActive = true;
 
-        // SET UP Nodes
         this.nodes = this.initializeBoard(cfg.TOTAL_NODES);
         this.initializeControlledNodes();
 
-        // SET UP Node Chain
         this.nodechain = Node.createNodeChain(this.nodes);
         this.nodeRenderer.drawNodeChain(this.nodes);
 
-        // SET UP Walls
         this.walls = Wall.generateWalls(
             cfg.WALL_COUNT,
             this.nodes,
             this.nodechain,
             this.rng,
         );
-        // Set up event listeners
+
         this.setupEventListeners();
-        
-        // Reset timers
+
         this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
         this.lastFrameTime = performance.now();
-
-        // Clear any existing intervals (for safety)
-        if (this.continuousFlowInterval) {
-            clearInterval(this.continuousFlowInterval);
-            this.continuousFlowInterval = null;
-        }
-
-        // Initialize mute button (OLD CODE)
-        // updateMuteButton();
-        // document.getElementById("muteButton").addEventListener("click", toggleMute);
-
-        cfg.VERBOSE >= 2 && console.log('Game initialized');
-        console.log('BEFORE GAMELOOP');
-        this.startGameLoop();
-        console.log('AFTER GAMELOOP');
     }
 
-    initializeBoard(totalNodes) {
-        const nodes = [];
+    initializeBoard(totalNodes: number): Node[] {
+        const nodes: Node[] = [];
         while (nodes.length < totalNodes) {
             const newNode = new Node(
                 this.rng() * (cfg.width - cfg.nodeRadius * 2) + cfg.nodeRadius,
@@ -208,11 +303,10 @@ export class Game {
                 nodes.push(newNode);
             }
         }
-        console.log('Total number of nodes created:', nodes.length);
         return nodes;
     }
 
-    initializeControlledNodes() {
+    initializeControlledNodes(): void {
         this.playerNode = this.initializeRandomNode(
             cfg.PLAYER_COLOR,
             cfg.PLAYER_START_UNITS,
@@ -222,14 +316,19 @@ export class Game {
             cfg.COMPUTER_START_UNITS,
             this.playerNode,
         );
-        this.initializeUncontrolledNodes(this.playerNode, this.computerNode);
+        if (this.playerNode && this.computerNode) {
+            this.initializeUncontrolledNodes(this.playerNode, this.computerNode);
+        }
     }
 
-    initializeRandomNode(color, units, avoidNode = null) {
-        console.log('initRand:', color);
-        let node = null;
+    initializeRandomNode(
+        color: string,
+        units: number,
+        avoidNode: Node | null = null,
+    ): Node | null {
+        let node: Node | null = null;
         let attempts = 0;
-        const maxAttempts = 100; // Limit attempts to prevent infinite loops
+        const maxAttempts = 100;
 
         do {
             node = this.randomNode(this.nodes);
@@ -241,18 +340,15 @@ export class Game {
             this.distanceBetweenNodes(node, avoidNode) < 100
         );
 
-        if (node) {
-            node.units = units;
-            node.color = color;
-            node.owner = color === cfg.PLAYER_COLOR ? 'player' : 'computer';
-            return node;
-        } else {
-            console.error('Could not find a valid node to initialize');
-            return null; // Return null if no valid node is found
-        }
+        if (!node) return null;
+
+        node.units = units;
+        node.color = color;
+        node.owner = color === cfg.PLAYER_COLOR ? 'player' : 'computer';
+        return node;
     }
 
-    initializeUncontrolledNodes(avoidNode1, avoidNode2) {
+    initializeUncontrolledNodes(avoidNode1: Node, avoidNode2: Node): void {
         this.nodes.forEach((node) => {
             if (node !== avoidNode1 && node !== avoidNode2) {
                 node.units = cfg.UNCONTROLLED_START_UNITS;
@@ -272,17 +368,17 @@ export class Game {
         });
     }
 
-    randomNode(nodes) {
+    randomNode(nodes: Node[]): Node {
         return nodes[Math.floor(this.rng() * nodes.length)];
     }
 
-    distanceBetweenNodes(node1, node2) {
+    distanceBetweenNodes(node1: Node, node2: Node): number {
         const dx = node1.x - node2.x;
         const dy = node1.y - node2.y;
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    isNodePositionValid(newNode, nodes) {
+    isNodePositionValid(newNode: Node, nodes: Node[]): boolean {
         return nodes.every(
             (node) =>
                 Math.sqrt(
@@ -292,17 +388,15 @@ export class Game {
         );
     }
 
-    linesIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
-        console.log('game - lines Inter');
-        const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
-        if (denom === 0) return false;
-        const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
-        const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
-        return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
-    }
-
-    lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r) {
-        console.log('game - lines Inter Circle');
+    lineIntersectsCircle(
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        cx: number,
+        cy: number,
+        r: number,
+    ): boolean {
         const dx = x2 - x1;
         const dy = y2 - y1;
         const fx = x1 - cx;
@@ -311,210 +405,192 @@ export class Game {
         const b = 2 * (fx * dx + fy * dy);
         const c = fx * fx + fy * fy - r * r;
         let discriminant = b * b - 4 * a * c;
-        if (discriminant < 0) {
-            return false;
-        }
+        if (discriminant < 0) return false;
         discriminant = Math.sqrt(discriminant);
         const t1 = (-b - discriminant) / (2 * a);
         const t2 = (-b + discriminant) / (2 * a);
         return (t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1);
     }
 
-    setupEventListeners() {
-        // Remove existing event listeners if they exist
+    setupEventListeners(): void {
         if (this.boundHandlePointerDown) {
-            this.canvas.removeEventListener('mousedown', this.boundHandlePointerDown);
-            this.canvas.removeEventListener('touchstart', this.boundHandlePointerDown);
+            this.canvas.removeEventListener(
+                'mousedown',
+                this.boundHandlePointerDown as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
+                'touchstart',
+                this.boundHandlePointerDown as unknown as EventListener,
+            );
         }
         if (this.boundHandlePointerUp) {
-            this.canvas.removeEventListener('mouseup', this.boundHandlePointerUp);
-            this.canvas.removeEventListener('touchend', this.boundHandlePointerUp);
+            this.canvas.removeEventListener(
+                'mouseup',
+                this.boundHandlePointerUp as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
+                'touchend',
+                this.boundHandlePointerUp as unknown as EventListener,
+            );
         }
         if (this.boundHandleKeydown) {
             document.removeEventListener('keydown', this.boundHandleKeydown);
         }
 
-        // Bind methods to maintain 'this' context
         this.boundHandlePointerDown = this.handlePointerDown.bind(this);
         this.boundHandlePointerUp = this.handlePointerUp.bind(this);
         this.boundHandleKeydown = this.handleKeydown.bind(this);
 
-        // Add event listeners
-        this.canvas.addEventListener('mousedown', this.boundHandlePointerDown);
-        this.canvas.addEventListener('mouseup', this.boundHandlePointerUp);
+        this.canvas.addEventListener(
+            'mousedown',
+            this.boundHandlePointerDown as unknown as EventListener,
+        );
+        this.canvas.addEventListener(
+            'mouseup',
+            this.boundHandlePointerUp as unknown as EventListener,
+        );
         this.canvas.addEventListener(
             'touchstart',
-            this.boundHandlePointerDown,
-            { passive: false }
+            this.boundHandlePointerDown as unknown as EventListener,
+            { passive: false },
         );
         this.canvas.addEventListener(
             'touchend',
-            this.boundHandlePointerUp,
-            { passive: false }
+            this.boundHandlePointerUp as unknown as EventListener,
+            { passive: false },
         );
         document.addEventListener('keydown', this.boundHandleKeydown);
     }
 
-    handlePointerDown(event) {
-        // Don't process pointer events when paused
-        if (this.isPaused) {
-            event.preventDefault();
-            return;
-        }
-        
+    private getEventPoint(event: PointerLikeEvent): { x: number; y: number } {
         const rect = this.canvas.getBoundingClientRect();
-        const x = (event.clientX || event.touches[0].clientX) - rect.left;
-        const y = (event.clientY || event.touches[0].clientY) - rect.top;
-        this.selectedNode = Node.getNodeAt(x, y, this.nodes);
+        if ('touches' in event && event.touches.length > 0) {
+            return {
+                x: event.touches[0].clientX - rect.left,
+                y: event.touches[0].clientY - rect.top,
+            };
+        }
+        if ('changedTouches' in event && event.changedTouches.length > 0) {
+            return {
+                x: event.changedTouches[0].clientX - rect.left,
+                y: event.changedTouches[0].clientY - rect.top,
+            };
+        }
+        const mouse = event as MouseEvent;
+        return { x: mouse.clientX - rect.left, y: mouse.clientY - rect.top };
     }
 
-    handlePointerUp(event) {
-        // Don't process pointer events when paused
+    handlePointerDown(event: PointerLikeEvent): void {
         if (this.isPaused) {
             event.preventDefault();
             return;
         }
-            
-        cfg.VERBOSE > 2 && console.log('PointerUp - A:', event);
+        const { x, y } = this.getEventPoint(event);
+        this.selectedNode = Node.getNodeAt(x, y, this.nodes) ?? null;
+    }
+
+    handlePointerUp(event: PointerLikeEvent): void {
+        if (this.isPaused) {
+            event.preventDefault();
+            return;
+        }
+
         if (this.selectedNode) {
-            const rect = this.canvas.getBoundingClientRect();
-            const x = (event.clientX || event.changedTouches[0].clientX) - rect.left;
-            const y = (event.clientY || event.changedTouches[0].clientY) - rect.top;
+            const { x, y } = this.getEventPoint(event);
             const targetNode = Node.getNodeAt(x, y, this.nodes);
-            
+
             if (
                 targetNode &&
                 targetNode !== this.selectedNode &&
                 !this.isPathBlocked(this.selectedNode, targetNode)
             ) {
-                cfg.VERBOSE > 2 && console.log('PointerUp - B');
                 this.selectedNode.destination = targetNode;
             } else {
-                cfg.VERBOSE > 2 && console.log('PointerUp - C');
-                this.selectedNode.destination = null; // Reset destination if clicking on the same node
+                this.selectedNode.destination = null;
             }
         }
-        cfg.VERBOSE > 2 && console.log('PointerUp - D');
     }
 
-    handleKeydown(event) {
-        // Always allow pause/unpause with 'p' or spacebar
-        if (event.key.toLowerCase() === 'p' || event.key === ' ' || event.key === 'Spacebar') {
+    handleKeydown(event: KeyboardEvent): void {
+        if (event.key.toLowerCase() === 'p' || event.key === ' ') {
             event.preventDefault();
             this.togglePause();
             return;
         }
 
-        // Block all other inputs when paused
         if (this.isPaused) {
             event.preventDefault();
             return;
         }
 
-        // Toggle debug mode with '?'
         if (event.key === '?') {
             event.preventDefault();
             this.debugMode = !this.debugMode;
-            console.log(`Debug mode ${this.debugMode ? 'enabled' : 'disabled'}`);
             return;
         }
 
-        // Handle other keys when not paused
         switch (event.key.toLowerCase()) {
             case 'r':
                 this.initGame();
                 break;
-            // Add other key handlers here if needed
         }
     }
 
-    handlePointerDown(event) {
-        // Don't process pointer events when paused
+    togglePause(): void {
+        this.isPaused = !this.isPaused;
+
         if (this.isPaused) {
-            event.preventDefault();
+            this.pauseStartTime = performance.now();
             return;
         }
-        
-        const rect = this.canvas.getBoundingClientRect();
-        const x = (event.clientX || event.touches[0].clientX) - rect.left;
-        const y = (event.clientY || event.touches[0].clientY) - rect.top;
-        this.selectedNode = Node.getNodeAt(x, y, this.nodes);
-    }
-    togglePause() {
-        this.isPaused = !this.isPaused;
-        
-        if (this.isPaused) {
-            // When pausing, record the pause start time
-            this.pauseStartTime = performance.now();
-        } else {
-            // When unpausing, update the total paused time and reset the last frame time
-            this.totalPausedTime += performance.now() - this.pauseStartTime;
-            this.lastFrameTime = performance.now();
-            
-            // Adjust animation start times to account for the pause duration
-            const currentTime = performance.now();
-            this.attackAnimations.forEach(anim => {
-                // Extend the animation duration by the time spent paused
-                if (!anim.completed) {
-                    anim.startTime += (currentTime - this.pauseStartTime);
-                }
-            });
-        }
-    }
-    
-    clearActiveTimeouts() {
-        // Clear all active timeouts when pausing
-        this.activeTimeouts.forEach(timeoutId => clearTimeout(timeoutId));
-        this.activeTimeouts = [];
-    }
 
-    generateUnitsForControlledNodes() {
-        return;
-        if (!this.gameActive) return;
-        console.log('generateUnitsForControlledNodes');
-        this.nodes.forEach((node) => {
-            if (node.units < node.maxUnits) {
-                node.units += node.generationSpeed / 1000; // Divide by 10 to match units generated per second
+        this.totalPausedTime += performance.now() - this.pauseStartTime;
+        this.lastFrameTime = performance.now();
+
+        const currentTime = performance.now();
+        this.attackAnimations.forEach((anim) => {
+            if (!anim.completed) {
+                anim.startTime += currentTime - this.pauseStartTime;
             }
         });
     }
 
-    startGameLoop() {
-        this.lastFrameTime = performance.now();
-        this.gameLoopId = requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+    clearActiveTimeouts(): void {
+        this.activeTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+        this.activeTimeouts = [];
     }
 
-    gameLoop(timestamp) {
-        // If game is no longer active, don't schedule another frame
-        if (!this.gameActive) {
-            console.log('Game loop ending (game no longer active)');
-            return;
-        }
+    startGameLoop(): void {
+        this.lastFrameTime = performance.now();
+        this.gameLoopId = requestAnimationFrame((timestamp) =>
+            this.gameLoop(timestamp),
+        );
+    }
+
+    gameLoop(timestamp: number): void {
+        if (!this.gameActive) return;
 
         if (!this.lastFrameTime) this.lastFrameTime = timestamp;
-        const deltaTime = (timestamp - this.lastFrameTime) / 1000; // Convert to seconds
+        const deltaTime = (timestamp - this.lastFrameTime) / 1000;
         this.lastFrameTime = timestamp;
 
-        if (this.gameActive && !this.isPaused) {
+        if (!this.isPaused) {
             this.updateGameState(deltaTime);
             this.updateAttackAnimations(deltaTime);
             this.checkGameOver();
         }
-        
-        // Always draw, even when paused, to show the pause overlay
+
         this.draw();
-        
-        // Only request next frame if game is still active
+
         if (this.gameActive) {
             this.gameLoopId = requestAnimationFrame((ts) => this.gameLoop(ts));
         }
     }
 
-    updateGameState(deltaTime) {
-        // Update unit generation using delta time
+    updateGameState(deltaTime: number): void {
         this.unitGenerationTimer += deltaTime;
-        const generationInterval = 1 / 30; // 30 times per second
-        
+        const generationInterval = 1 / 30;
+
         while (this.unitGenerationTimer >= generationInterval) {
             this.nodes.forEach((node) => {
                 if (node.units < node.maxUnits) {
@@ -523,67 +599,56 @@ export class Game {
             });
             this.unitGenerationTimer -= generationInterval;
         }
-        
-        // Update continuous flow using delta time
+
         this.continuousFlowTimer += deltaTime;
         const dispatchInterval = 1 / cfg.PLAYER_UNIT_DISPATCH_SPEED;
-        
+
         while (this.continuousFlowTimer >= dispatchInterval) {
             this.handleContinuousFlow();
             this.continuousFlowTimer -= dispatchInterval;
         }
     }
 
-    updateAttackAnimations(deltaTime) {
+    updateAttackAnimations(_deltaTime: number): void {
         const now = performance.now();
-        const activeAnimations = [];
-        
+        const activeAnimations: AttackAnimation[] = [];
+
         this.attackAnimations.forEach((animation) => {
             if (animation.completed) return;
-            
+
             if (!this.isPaused) {
-                // Adjust for any time spent paused
                 const adjustedNow = now - this.totalPausedTime;
-                const elapsed = adjustedNow - (animation.startTime - this.totalPausedTime);
+                const elapsed =
+                    adjustedNow -
+                    (animation.startTime - this.totalPausedTime);
                 animation.progress = Math.min(elapsed / animation.duration, 1);
-                
-                // If animation completed, resolve battle
+
                 if (animation.progress >= 1) {
                     this.resolveBattle(animation.toNode, animation.fromNode.owner);
                     animation.completed = true;
-                    return; // Skip adding to active animations
+                    return;
                 }
             }
             activeAnimations.push(animation);
         });
-        
-        // Update the animations array to only include active animations
+
         this.attackAnimations = activeAnimations;
     }
 
-    draw() {
-        // Clear the canvas
+    draw(): void {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw the game board background
+
         this.ctx.fillStyle = '#f0f0f0';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw node connections in debug mode
+
         if (this.debugMode) {
             this.nodeRenderer.drawNodeChain(this.nodes);
         }
-        
-        // Draw walls
-        this.walls.forEach(wall => wall.draw(this.ctx));
-        
-        // Draw nodes
-        this.nodes.forEach(node => this.nodeRenderer.drawNode(node));
-        
-        // Draw attack animations
+
+        this.walls.forEach((wall) => wall.draw(this.ctx));
+        this.nodes.forEach((node) => this.nodeRenderer.drawNode(node));
         this.drawAttackAnimations();
-        
-        // Draw selection indicator if a node is selected
+
         if (this.selectedNode) {
             this.ctx.strokeStyle = '#00ff00';
             this.ctx.lineWidth = 3;
@@ -593,31 +658,35 @@ export class Game {
                 this.selectedNode.y,
                 this.selectedNode.radius + 5,
                 0,
-                Math.PI * 2
+                Math.PI * 2,
             );
             this.ctx.stroke();
         }
-        
-        // Draw pause overlay if game is paused
+
         if (this.isPaused) {
-            // Semi-transparent overlay
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            
-            // "Paused" text
+
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = '48px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            this.ctx.fillText('PAUSED', this.canvas.width / 2, this.canvas.height / 2);
-            
-            // Instructions
+            this.ctx.fillText(
+                'PAUSED',
+                this.canvas.width / 2,
+                this.canvas.height / 2,
+            );
+
             this.ctx.font = '24px Arial';
-            this.ctx.fillText('Press P or SPACE to resume', this.canvas.width / 2, this.canvas.height / 2 + 50);
+            this.ctx.fillText(
+                'Press P or SPACE to resume',
+                this.canvas.width / 2,
+                this.canvas.height / 2 + 50,
+            );
         }
     }
 
-    drawAttackAnimations() {
+    drawAttackAnimations(): void {
         this.attackAnimations.forEach((animation) => {
             if (animation.completed) return;
 
@@ -659,11 +728,9 @@ export class Game {
         });
     }
 
-    // Logic for unit dispatch
-    handleContinuousFlow() {
+    handleContinuousFlow(): void {
         if (!this.gameActive) return;
 
-        // Handle computer delay
         if (
             Date.now() - this.computerLastCaptureTime >=
             cfg.COMPUTER_DELAY_NEW_BASE
@@ -688,9 +755,8 @@ export class Game {
         });
     }
 
-    // find target for computer
-    findTargetNode(node) {
-        let nearestEnemy = null;
+    findTargetNode(node: Node): Node | null {
+        let nearestEnemy: Node | null = null;
         let minDistance = Infinity;
         this.nodes.forEach((potentialTarget) => {
             if (potentialTarget.owner !== node.owner) {
@@ -707,9 +773,7 @@ export class Game {
         return nearestEnemy;
     }
 
-    // check to see if path is blocked
-    isPathBlocked(node1, node2) {
-        cfg.VERBOSE > 2 && console.log('game - isPathBlocked');
+    isPathBlocked(node1: Node, node2: Node): boolean {
         return this.walls.some((wall) =>
             this.linesIntersect(
                 wall.x1,
@@ -724,8 +788,16 @@ export class Game {
         );
     }
 
-    linesIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
-        cfg.VERBOSE > 2 && console.log('game - lines Inter PART2');
+    linesIntersect(
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        x3: number,
+        y3: number,
+        x4: number,
+        y4: number,
+    ): boolean {
         const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
         if (denom === 0) return false;
         const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
@@ -733,20 +805,15 @@ export class Game {
         return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
     }
 
-    // send units to target
-    sendUnits(fromNode, toNode, unitSpeed) {
-        const travelTime = this.calculateTravelTime(
-            fromNode,
-            toNode,
-            unitSpeed,
-        );
+    sendUnits(fromNode: Node, toNode: Node, unitSpeed: number): void {
+        const travelTime = this.calculateTravelTime(fromNode, toNode, unitSpeed);
         fromNode.units -= 1;
 
         const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x);
         const startX = fromNode.x + cfg.nodeRadius * Math.cos(angle);
         const startY = fromNode.y + cfg.nodeRadius * Math.sin(angle);
 
-        const animation = {
+        const animation: AttackAnimation = {
             fromNode,
             toNode,
             units: 1,
@@ -756,12 +823,12 @@ export class Game {
             progress: 0,
             duration: travelTime,
             startTime: performance.now(),
-            completed: false
+            completed: false,
         };
         this.attackAnimations.push(animation);
     }
 
-    calculateTravelTime(fromNode, toNode, unitSpeed) {
+    calculateTravelTime(fromNode: Node, toNode: Node, unitSpeed: number): number {
         const distance =
             Math.sqrt(
                 Math.pow(toNode.x - fromNode.x, 2) +
@@ -771,36 +838,31 @@ export class Game {
         return (distance / unitSpeed) * 100;
     }
 
-    resolveBattle(toNode, attackerOwner) {
+    resolveBattle(toNode: Node, attackerOwner: NodeOwner): void {
         if (toNode.owner === attackerOwner) {
             toNode.units = Math.min(toNode.units + 1, toNode.maxUnits);
-        } else {
-            toNode.units -= 1;
-            if (toNode.units <= 0) {
-                toNode.units = 0;
-                toNode.owner = attackerOwner;
-                toNode.color =
-                    attackerOwner === 'player'
-                        ? cfg.PLAYER_COLOR
-                        : cfg.COMPUTER_COLOR;
+            return;
+        }
 
-                // Increase the generationSpeed and round to one decimal place
-                toNode.generationSpeed =
-                    Math.round(toNode.generationSpeed * 10 + 3) / 10; // make sure there's only 1 place after decimal
+        toNode.units -= 1;
+        if (toNode.units > 0) return;
 
-                toNode.destination = null;
-                if (attackerOwner === 'computer') {
-                    this.computerCanAct = false;
-                    this.computerLastCaptureTime = Date.now();
-                }
-            }
+        toNode.units = 0;
+        toNode.owner = attackerOwner;
+        toNode.color =
+            attackerOwner === 'player' ? cfg.PLAYER_COLOR : cfg.COMPUTER_COLOR;
+
+        toNode.generationSpeed = Math.round(toNode.generationSpeed * 10 + 3) / 10;
+
+        toNode.destination = null;
+        if (attackerOwner === 'computer') {
+            this.computerCanAct = false;
+            this.computerLastCaptureTime = Date.now();
         }
     }
 
-    checkGameOver() {
-        const playerNodes = this.nodes.filter(
-            (node) => node.owner === 'player',
-        );
+    checkGameOver(): void {
+        const playerNodes = this.nodes.filter((node) => node.owner === 'player');
         const computerNodes = this.nodes.filter(
             (node) => node.owner === 'computer',
         );
@@ -814,14 +876,24 @@ export class Game {
         }
     }
 
-    displayGameOver(message) {
+    displayGameOver(message: string): void {
         this.gameActive = false;
-        document.getElementById('statusText').innerText = message;
-        document.getElementById('playerGold').innerText =
-            `Player Gold: ${this.playerGold}`;
-        document.getElementById('computerGold').innerText =
-            `Computer Gold: ${this.computerGold}`;
-        document.getElementById('restartButton').style.display = 'inline-block';
+        if (
+            !this.skipUIRenderer &&
+            this.uiRenderer &&
+            typeof (this.uiRenderer as any).showGameOver === 'function'
+        ) {
+            const currentSeed = Number(this.seed);
+            const suggestedSeed = Number.isFinite(currentSeed)
+                ? currentSeed + 1
+                : null;
+            (this.uiRenderer as any).showGameOver(
+                message,
+                this.playerGold,
+                this.computerGold,
+                suggestedSeed,
+            );
+        }
         this.attackAnimations = [];
     }
 }

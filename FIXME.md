@@ -164,7 +164,7 @@ These items improve dev confidence and automation.
 
 13. **Hardcoded Values**
 
-    * Found in `config.js` and scattered constants.
+    * Found in `src/config.ts` and scattered constants.
     * Move to central config/constants with explanations.
 
 14. **Missing Input Validation**
