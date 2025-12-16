@@ -1,10 +1,10 @@
-import { cfg, seededRandomGenerator } from './config';
-import { UIRenderer } from './UIRenderer';
-import { Node } from './node';
-import { NodeRenderer } from './NodeRenderer';
-import { Wall } from './wall';
-import type { SeededRandomGenerator } from './types/config';
-import type { NodeOwner } from './node';
+import {cfg, seededRandomGenerator} from './config';
+import {UIRenderer} from './UIRenderer';
+import {Node} from './node';
+import {NodeRenderer} from './NodeRenderer';
+import {Wall} from './wall';
+import type {SeededRandomGenerator} from './types/config';
+import type {NodeOwner} from './node';
 
 type CanvasLike = {
     width: number;
@@ -12,7 +12,7 @@ type CanvasLike = {
     getContext: (contextId: '2d') => CanvasRenderingContext2D | null;
     addEventListener: (...args: any[]) => void;
     removeEventListener: (...args: any[]) => void;
-    getBoundingClientRect: () => { left: number; top: number };
+    getBoundingClientRect: () => {left: number; top: number};
 };
 
 type PointerLikeEvent = MouseEvent | TouchEvent;
@@ -75,6 +75,7 @@ export class Game {
     boundHandlePointerDown: ((event: PointerLikeEvent) => void) | null;
     boundHandlePointerUp: ((event: PointerLikeEvent) => void) | null;
     boundHandleKeydown: ((event: KeyboardEvent) => void) | null;
+    boundHandleResize: (() => void) | null;
 
     lastFrameTime: number;
     continuousFlowTimer: number;
@@ -98,19 +99,29 @@ export class Game {
                 this.canvas = el as unknown as CanvasLike;
             } else {
                 console.error('Canvas element not found or is not canvas-like');
-                this.canvas = document.createElement('canvas') as unknown as CanvasLike;
+                this.canvas = document.createElement(
+                    'canvas',
+                ) as unknown as CanvasLike;
             }
-        } else if (canvasId && typeof (canvasId as any).getContext === 'function') {
+        } else if (
+            canvasId &&
+            typeof (canvasId as any).getContext === 'function'
+        ) {
             this.canvas = canvasId;
         } else {
-            console.error('Canvas not provided; using fallback canvas for non-DOM use');
-            this.canvas = document.createElement('canvas') as unknown as CanvasLike;
+            console.error(
+                'Canvas not provided; using fallback canvas for non-DOM use',
+            );
+            this.canvas = document.createElement(
+                'canvas',
+            ) as unknown as CanvasLike;
         }
 
         this.pauseStartTime = 0;
         this.totalPausedTime = 0;
 
-        const ctx = this.canvas.getContext('2d') || this.createFallbackContext();
+        const ctx =
+            this.canvas.getContext('2d') || this.createFallbackContext();
         this.ctx = ctx;
 
         this.nodeRenderer = new NodeRenderer(this.ctx);
@@ -144,6 +155,7 @@ export class Game {
         this.boundHandlePointerDown = null;
         this.boundHandlePointerUp = null;
         this.boundHandleKeydown = null;
+        this.boundHandleResize = null;
 
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
@@ -173,10 +185,12 @@ export class Game {
             scale: noop,
             rotate: noop,
             closePath: noop,
-            measureText: () => ({ width: 0 } as TextMetrics),
-            getImageData: (() => ({ data: new Uint8ClampedArray() } as ImageData)) as any,
+            measureText: () => ({width: 0}) as TextMetrics,
+            getImageData: (() =>
+                ({data: new Uint8ClampedArray()}) as ImageData) as any,
             putImageData: noop as any,
-            createImageData: (() => ({ data: new Uint8ClampedArray() } as ImageData)) as any,
+            createImageData: (() =>
+                ({data: new Uint8ClampedArray()}) as ImageData) as any,
             setTransform: noop as any,
             drawImage: noop as any,
             font: '',
@@ -202,6 +216,10 @@ export class Game {
         if (this.boundHandleKeydown) {
             document.removeEventListener('keydown', this.boundHandleKeydown);
             this.boundHandleKeydown = null;
+        }
+        if (this.boundHandleResize) {
+            window.removeEventListener('resize', this.boundHandleResize);
+            this.boundHandleResize = null;
         }
 
         if (this.boundHandlePointerDown) {
@@ -231,32 +249,52 @@ export class Game {
         this.selectedNode = null;
         this.attackAnimations = [];
 
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.clearRect(0, 0, cfg.width, cfg.height);
 
-        const maybeGc = (window as unknown as { gc?: () => void }).gc;
+        const maybeGc = (window as unknown as {gc?: () => void}).gc;
         if (typeof maybeGc === 'function') {
             maybeGc();
         }
     }
 
     setGameboardDimensions(): void {
-        if (window.innerWidth < 600) {
-            cfg.width = window.innerWidth - 20;
-            cfg.height = window.innerHeight - 100;
-            cfg.nodeRadius = 20;
-        } else {
-            cfg.width = 800;
-            cfg.height = 600;
-            cfg.nodeRadius = 30;
+        const canvasEl = this.canvas as unknown as HTMLCanvasElement;
+        const rect = canvasEl.getBoundingClientRect?.();
+
+        const cssWidth =
+            rect && rect.width
+                ? Math.floor(rect.width)
+                : Math.min(1100, window.innerWidth);
+        const cssHeight =
+            rect && rect.height
+                ? Math.floor(rect.height)
+                : Math.min(820, window.innerHeight);
+
+        cfg.width = Math.max(360, cssWidth);
+        cfg.height = Math.max(360, cssHeight);
+        cfg.nodeRadius = cfg.width < 680 ? 20 : 30;
+
+        const dpr = Math.max(
+            1,
+            Math.floor((window.devicePixelRatio || 1) * 100) / 100,
+        );
+        this.canvas.width = Math.floor(cfg.width * dpr);
+        this.canvas.height = Math.floor(cfg.height * dpr);
+
+        if (typeof this.ctx.setTransform === 'function') {
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
-        this.canvas.width = cfg.width;
-        this.canvas.height = cfg.height;
 
         cfg.wallMaxLength = Math.min(cfg.width, cfg.height) * 0.4;
         cfg.UNIT_DISPATCH_FREQUENCY = 5;
     }
 
     start(): void {
+        this.setGameboardDimensions();
+        if (!this.boundHandleResize) {
+            this.boundHandleResize = () => this.setGameboardDimensions();
+            window.addEventListener('resize', this.boundHandleResize);
+        }
         this.initGame();
         this.lastFrameTime = 0;
         this.continuousFlowTimer = 0;
@@ -317,7 +355,10 @@ export class Game {
             this.playerNode,
         );
         if (this.playerNode && this.computerNode) {
-            this.initializeUncontrolledNodes(this.playerNode, this.computerNode);
+            this.initializeUncontrolledNodes(
+                this.playerNode,
+                this.computerNode,
+            );
         }
     }
 
@@ -452,17 +493,17 @@ export class Game {
         this.canvas.addEventListener(
             'touchstart',
             this.boundHandlePointerDown as unknown as EventListener,
-            { passive: false },
+            {passive: false},
         );
         this.canvas.addEventListener(
             'touchend',
             this.boundHandlePointerUp as unknown as EventListener,
-            { passive: false },
+            {passive: false},
         );
         document.addEventListener('keydown', this.boundHandleKeydown);
     }
 
-    private getEventPoint(event: PointerLikeEvent): { x: number; y: number } {
+    private getEventPoint(event: PointerLikeEvent): {x: number; y: number} {
         const rect = this.canvas.getBoundingClientRect();
         if ('touches' in event && event.touches.length > 0) {
             return {
@@ -477,7 +518,7 @@ export class Game {
             };
         }
         const mouse = event as MouseEvent;
-        return { x: mouse.clientX - rect.left, y: mouse.clientY - rect.top };
+        return {x: mouse.clientX - rect.left, y: mouse.clientY - rect.top};
     }
 
     handlePointerDown(event: PointerLikeEvent): void {
@@ -485,7 +526,7 @@ export class Game {
             event.preventDefault();
             return;
         }
-        const { x, y } = this.getEventPoint(event);
+        const {x, y} = this.getEventPoint(event);
         this.selectedNode = Node.getNodeAt(x, y, this.nodes) ?? null;
     }
 
@@ -496,7 +537,7 @@ export class Game {
         }
 
         if (this.selectedNode) {
-            const { x, y } = this.getEventPoint(event);
+            const {x, y} = this.getEventPoint(event);
             const targetNode = Node.getNodeAt(x, y, this.nodes);
 
             if (
@@ -613,12 +654,14 @@ export class Game {
             if (!this.isPaused) {
                 const adjustedNow = now - this.totalPausedTime;
                 const elapsed =
-                    adjustedNow -
-                    (animation.startTime - this.totalPausedTime);
+                    adjustedNow - (animation.startTime - this.totalPausedTime);
                 animation.progress = Math.min(elapsed / animation.duration, 1);
 
                 if (animation.progress >= 1) {
-                    this.resolveBattle(animation.toNode, animation.fromNode.owner);
+                    this.resolveBattle(
+                        animation.toNode,
+                        animation.fromNode.owner,
+                    );
                     animation.completed = true;
                     return;
                 }
@@ -630,10 +673,10 @@ export class Game {
     }
 
     draw(): void {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.clearRect(0, 0, cfg.width, cfg.height);
 
-        this.ctx.fillStyle = '#f0f0f0';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = '#0b1020';
+        this.ctx.fillRect(0, 0, cfg.width, cfg.height);
 
         if (this.debugMode) {
             this.nodeRenderer.drawNodeChain(this.nodes);
@@ -659,23 +702,19 @@ export class Game {
 
         if (this.isPaused) {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillRect(0, 0, cfg.width, cfg.height);
 
             this.ctx.fillStyle = '#ffffff';
             this.ctx.font = '48px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(
-                'PAUSED',
-                this.canvas.width / 2,
-                this.canvas.height / 2,
-            );
+            this.ctx.fillText('PAUSED', cfg.width / 2, cfg.height / 2);
 
             this.ctx.font = '24px Arial';
             this.ctx.fillText(
                 'Press P or SPACE to resume',
-                this.canvas.width / 2,
-                this.canvas.height / 2 + 50,
+                cfg.width / 2,
+                cfg.height / 2 + 50,
             );
         }
     }
@@ -800,7 +839,11 @@ export class Game {
     }
 
     sendUnits(fromNode: Node, toNode: Node, unitSpeed: number): void {
-        const travelTime = this.calculateTravelTime(fromNode, toNode, unitSpeed);
+        const travelTime = this.calculateTravelTime(
+            fromNode,
+            toNode,
+            unitSpeed,
+        );
         fromNode.units -= 1;
 
         const angle = Math.atan2(toNode.y - fromNode.y, toNode.x - fromNode.x);
@@ -822,7 +865,11 @@ export class Game {
         this.attackAnimations.push(animation);
     }
 
-    calculateTravelTime(fromNode: Node, toNode: Node, unitSpeed: number): number {
+    calculateTravelTime(
+        fromNode: Node,
+        toNode: Node,
+        unitSpeed: number,
+    ): number {
         const distance =
             Math.sqrt(
                 Math.pow(toNode.x - fromNode.x, 2) +
@@ -846,7 +893,8 @@ export class Game {
         toNode.color =
             attackerOwner === 'player' ? cfg.PLAYER_COLOR : cfg.COMPUTER_COLOR;
 
-        toNode.generationSpeed = Math.round(toNode.generationSpeed * 10 + 3) / 10;
+        toNode.generationSpeed =
+            Math.round(toNode.generationSpeed * 10 + 3) / 10;
 
         toNode.destination = null;
         if (attackerOwner === 'computer') {
@@ -856,7 +904,9 @@ export class Game {
     }
 
     checkGameOver(): void {
-        const playerNodes = this.nodes.filter((node) => node.owner === 'player');
+        const playerNodes = this.nodes.filter(
+            (node) => node.owner === 'player',
+        );
         const computerNodes = this.nodes.filter(
             (node) => node.owner === 'computer',
         );

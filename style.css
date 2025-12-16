@@ -1,95 +1,283 @@
+:root {
+    --bg: #0b1020;
+    --panel: rgba(255, 255, 255, 0.06);
+    --panel-border: rgba(255, 255, 255, 0.1);
+    --text: #e5e7eb;
+    --muted: rgba(229, 231, 235, 0.7);
+    --primary: #8b5cf6; /* purple */
+    --danger: #ef4444; /* red */
+    --btn: rgba(255, 255, 255, 0.08);
+    --btn-hover: rgba(255, 255, 255, 0.14);
+    --shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
 body {
     margin: 0;
-    padding: 0;
+    background:
+        radial-gradient(
+            1200px 800px at 75% 40%,
+            rgba(139, 92, 246, 0.16),
+            transparent 60%
+        ),
+        radial-gradient(
+            1200px 800px at 25% 70%,
+            rgba(239, 68, 68, 0.1),
+            transparent 55%
+        ),
+        var(--bg);
+    color: var(--text);
+    font-family:
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        Segoe UI,
+        Roboto,
+        Helvetica,
+        Arial,
+        'Apple Color Emoji',
+        'Segoe UI Emoji';
+}
+
+#app {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+#sidebar {
+    width: 320px;
+    padding: 18px 16px;
+    border-right: 1px solid var(--panel-border);
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    height: 100vh;
-    overflow-y: auto;
-    background-color: #707070;
-    font-family: Arial, sans-serif;
+    gap: 14px;
 }
-#gameCanvas {
-    border: 1px solid #000;
-    background-color: #dde;
+
+.brand-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
 }
-#gameStatus {
-    text-align: center;
-    width: 100%;
-    font-size: 24px;
-    color: #fff;
+
+.brand-version {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 13px;
 }
-#statusText {
-    font-weight: bold;
+
+.panel {
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 18px;
 }
-#playerGold,
-#computerGold {
-    font-size: 16px;
+
+.hud-line {
+    font-size: 18px;
+    color: var(--muted);
+    min-height: 18px;
+}
+
+.seed-field label {
     display: block;
+    font-size: 18px;
+    color: var(--muted);
+    margin-bottom: 6px;
 }
-#restartButton {
-    display: none;
-    margin-top: 10px;
-    padding: 10px 20px;
-    font-size: 16px;
+
+.seed-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    font-size: 18px;
+    outline: none;
+}
+
+.seed-field input:focus {
+    border-color: rgba(139, 92, 246, 0.65);
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--btn);
+    color: var(--text);
     cursor: pointer;
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: 0.2px;
+    user-select: none;
 }
-#titleSection {
-    text-align: center;
-    margin-top: 20px;
+
+.btn:hover {
+    background: var(--btn-hover);
 }
-#titleSection h1 {
-    margin: 0;
-    font-size: 36px;
-    color: #ffffff;
+
+.btn-primary {
+    border-color: rgba(139, 92, 246, 0.5);
+    background: rgba(139, 92, 246, 0.2);
 }
-#titleSection h2 {
-    margin: 5px 0 15px 0;
-    font-size: 20px;
-    color: #dddddd;
-    font-weight: normal;
+
+.btn-primary:hover {
+    background: rgba(139, 92, 246, 0.28);
 }
-#statusBar {
+
+.btn-secondary {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.btn-icon {
+    width: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.9;
+}
+
+.score {
+    display: grid;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.score-line {
+    font-size: 18px;
+    color: var(--muted);
+}
+
+.score-line.player strong,
+.score-line.player {
+    color: rgba(139, 92, 246, 0.9);
+}
+
+.score-line.computer strong,
+.score-line.computer {
+    color: rgba(239, 68, 68, 0.95);
+}
+
+.status-bar {
+    margin-top: 6px;
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    width: 100%;
-    height: 30px;
-    background-color: #333;
-    margin-bottom: 10px;
+    height: 34px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 10px;
 }
-#muteButton {
-    width: 30px;
-    height: 30px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    cursor: pointer;
-    margin-right: 10px;
+
+.mute-button {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.22);
 }
-.overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
+
+#gameArea {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+#gameCanvas {
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
+    max-width: 1100px;
+    max-height: 820px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow);
+}
+
+#gameOverlay {
+    position: absolute;
+    inset: 18px;
+    display: none;
     align-items: center;
-    z-index: 10;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    border-radius: 16px;
+    z-index: 1000;
 }
-.overlay-text {
-    font-size: 48px;
-    color: white;
-    font-weight: bold;
+
+.modal {
+    width: min(520px, calc(100% - 28px));
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(20, 24, 40, 0.92);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
-.help-window {
-    background-color: white;
-    padding: 20px;
-    border-radius: 10px;
-    max-width: 80%;
-    max-height: 80%;
-    overflow-y: auto;
+
+.modal-title {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.modal-subtitle {
+    color: var(--muted);
+    font-size: 18px;
+}
+
+.modal .seed-field {
+    margin-top: 4px;
+}
+
+@media (max-width: 860px) {
+    #app {
+        flex-direction: column;
+    }
+    #sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--panel-border);
+    }
+    #gameArea {
+        padding: 12px;
+    }
+    #gameOverlay {
+        inset: 12px;
+    }
+    #gameCanvas {
+        max-width: none;
+        max-height: none;
+    }
+}
+
+/* Legacy */
+.overlay {
+    display: none;
 }

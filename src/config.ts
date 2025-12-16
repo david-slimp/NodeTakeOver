@@ -1,4 +1,4 @@
-import { GameConfig, SeededRandomGenerator } from './types/config';
+import {GameConfig, SeededRandomGenerator} from './types/config';
 
 /**
  * Main game configuration object with default values.
@@ -7,7 +7,7 @@ import { GameConfig, SeededRandomGenerator } from './types/config';
 export const cfg: GameConfig = {
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.3.2',
+    VERSION: '0.3.3',
 
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
@@ -66,7 +66,7 @@ export function seededRandomGenerator(seed: number): SeededRandomGenerator {
         value: seed,
         writable: false,
         enumerable: false,
-        configurable: false
+        configurable: false,
     });
     return rng as SeededRandomGenerator;
 }
@@ -74,4 +74,6 @@ export function seededRandomGenerator(seed: number): SeededRandomGenerator {
 /**
  * Default seeded RNG instance using the default seed from config.
  */
-export const rngInstance: SeededRandomGenerator = seededRandomGenerator(cfg.seed);
+export const rngInstance: SeededRandomGenerator = seededRandomGenerator(
+    cfg.seed,
+);

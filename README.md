@@ -1,6 +1,6 @@
 # Node Takeover
 
-![Game Screenshot](screenshot.png)
+![Game Screenshot](assets/screenshot.png)
 
 A strategic territory control game where players compete to take over nodes on a dynamic gameboard. Build your forces, capture neutral nodes, and defeat your opponent in this engaging strategy game.
 
@@ -22,10 +22,10 @@ Production: https://rock808.com/games/NodeTakeOver/
 
 1. **Objective**: Capture all enemy nodes on the board.
 2. **Controls**:
-   - Click on a node you control to select it
-   - MouseDrag to an enemy or neutral node to send units to capture it
-   - Use the seed input to replay specific game maps
-   - Click "Restart" to begin a new game with the current seed
+    - Click on a node you control to select it
+    - MouseDrag to an enemy or neutral node to send units to capture it
+    - Use the seed input to replay specific game maps
+    - Click "Restart" to begin a new game with the current seed
 
 ## 🚀 Getting Started
 
