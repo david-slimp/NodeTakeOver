@@ -528,12 +528,6 @@ export class Game {
             this.debugMode = !this.debugMode;
             return;
         }
-
-        switch (event.key.toLowerCase()) {
-            case 'r':
-                this.initGame();
-                break;
-        }
     }
 
     togglePause(): void {

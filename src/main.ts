@@ -14,6 +14,7 @@ function initGame(seed: number | null = cfg.seed): void {
     }
     game = new Game('gameCanvas', seed, debugMode, { uiRenderer });
     game.start();
+    uiRenderer.setSeed(game.seed);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -27,4 +28,3 @@ document.addEventListener('DOMContentLoaded', () => {
     uiRenderer.onRestart((seed) => initGame(seed));
     uiRenderer.setupKeyboardShortcuts((seed) => initGame(seed));
 });
-

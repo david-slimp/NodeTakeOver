@@ -4,72 +4,9 @@
 
 A strategic territory control game where players compete to take over nodes on a dynamic gameboard. Build your forces, capture neutral nodes, and defeat your opponent in this engaging strategy game.
 
-### Development
+## 🌐 Play Online
 
-#### Development Server
-
-During development, the application uses port `8000` by default. This is the standard port for local development.
-
-To start the development server:
-
-```bash
-npm run dev
-```
-
-This will:
-1. Build the application
-2. Start a local server on port 8000
-3. Serve the built game from `dist/`
-
-If port 8000 is in use, the script will attempt to free it up. If that fails, you'll need to manually stop whatever is using port 8000.
-
-### Building for Production
-
-To create a production-ready build:
-
-```bash
-npm run build
-```
-
-This will create a `dist` directory with only the files needed to run the game.
-
-### Deployment
-
-The `dist` directory contains all necessary files to deploy the game to any static web hosting service. Here are some common deployment options:
-
-#### GitHub Pages
-1. Ensure your repository is pushed to GitHub
-2. Go to your repository Settings > Pages
-3. Set Source to "Deploy from a branch"
-4. Select `gh-pages` branch and `/ (root)` folder
-5. Click Save
-
-The game will be available at `https://<your-username>.github.io/NodeTakeOver/`
-
-#### Netlify
-1. Drag and drop the `dist` folder to Netlify's drop zone
-2. Or connect your GitHub repository and set the publish directory to `dist`
-
-#### Vercel
-1. Import your GitHub repository
-2. Set the framework preset to "Static"
-3. Set the output directory to `dist`
-4. Deploy
-
-### Manual Deployment
-For manual deployment to any web server:
-1. Run `npm run build`
-2. Upload the contents of the `dist` directory to your web server
-3. Ensure the server serves `index.html` at `/`
-
-### Development vs Production Files
-- **Development**: The root directory contains source files, configuration, and development tools
-- **Production**: The `dist` directory contains only the minified and optimized files needed to run the game
-
-### Updating the Game
-1. Make your changes to the source files
-2. Run `npm run build` to update the `dist` directory
-3. Commit and push changes to your repository
+Production: https://rock808.com/games/NodeTakeOver/
 
 ## 🎮 Features
 
@@ -80,10 +17,6 @@ For manual deployment to any web server:
 - **Obstacle System**: Navigate around walls that block unit movement
 - **Responsive Design**: Play on various screen sizes
 - **Customizable Settings**: Adjust game parameters for different difficulty levels
-
-## 🌐 Play Online
-
-You can play the game online at: https://rock808.com/games/NodeTakeOver/
 
 ## 🎯 How to Play
 
@@ -99,35 +32,24 @@ You can play the game online at: https://rock808.com/games/NodeTakeOver/
 ### Prerequisites
 
 - Modern web browser (Chrome, Firefox, Safari, Edge)
-- Node.js (for development)
+- Node.js (for local builds / running a local copy)
 
 ### Local Installation
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/david-slimp/NodeTakeOver.git
-   cd NodeTakeOver
-   ```
+```bash
+git clone https://github.com/david-slimp/NodeTakeOver.git
+cd NodeTakeOver
+npm install
+npm run dev
+```
 
-2. Open `index.html` in your web browser to start playing!
-   - Recommended: `npm run dev` and visit `http://localhost:8000`
-   - Or: `npm run build` and open `dist/index.html`
+Then open `http://localhost:8000`.
 
-## 🛠 Development
-
-### Project Structure
-
-- `index.html` - Main game interface
-- `src/main.ts` - Game initialization and main loop (compiled to `dist/main.js`)
-- `src/game.ts` - Core game logic and state management (compiled to `dist/game.js`)
-- `src/config.ts` - Game configuration and constants (compiled to `dist/config.js`)
-- `style.css` - Game styling
-
-
+Development notes live in `DEVEL.md`.
 
 ## 📝 License
 
-This project is licensed under the GPL License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
 
 ## 👏 Contributing
 

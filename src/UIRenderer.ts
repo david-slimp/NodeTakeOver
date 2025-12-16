@@ -238,6 +238,17 @@ export class UIRenderer {
     }
 
     /**
+     * Sets the seed input to the provided seed value.
+     */
+    setSeed(seed: number | null): void {
+        if (typeof seed === 'number' && Number.isFinite(seed)) {
+            this.seedInput.value = String(seed);
+            return;
+        }
+        this.seedInput.value = '';
+    }
+
+    /**
      * Clears the seed input.
      */
     clearSeed(): void {
@@ -266,4 +277,3 @@ export class UIRenderer {
         });
     }
 }
-

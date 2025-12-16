@@ -1,11 +1,13 @@
 
-Here is my "New Day" developer AI prompt for firing up Windsruf again and
+Here is my "New Day" developer AI prompt for firing up Windsurf again and
 getting back to work for the next day/sprint/project:
 "
 Let's look over the main codebase for this game project. There are about 8 or so main active game files. We are in the process of migrating from JS to TS.  I think we have finished the config.ts and node.ts so far, but let's double check where we are at in this process.
 We also want to confirm our devel environment.... I think we are using some testing framework to make sure we keep stable and bug-free code.  There could be a couple different layers of tests?
 What are some suggestions for our next coding sprint today?
 "
+
+NOTE (2025-12): This file is a planning/scratchpad for the JS→TS migration. Many items below are now DONE; keep using this file to track remaining work by marking items clearly as `[DONE]`, `[PARTIAL]`, or `[TODO]`.
 
 =============================================
 Current Wall Class Methods
@@ -35,21 +37,21 @@ Collision Detection
 - High-level validation
 - Should stay in Wall class as it coordinates other validations
 6. static linesIntersect(w1, w2)
-- Pure geometry function
-- Could be moved to a geometry.ts utility file
-- Used by multiple classes (Wall, potentially others)
+- [TODO] Pure geometry function
+- [TODO] Could be moved to a geometry.ts utility file
+- [TODO] Used by multiple classes (Wall, potentially others)
 7. static lineIntersectsNode(wall, node)
-- Specific to Wall-Node interaction
-- Could be moved to a collision.ts utility file
-- Or stay in Wall class as it's wall-specific
+- [TODO] Specific to Wall-Node interaction
+- [TODO] Could be moved to a collision.ts utility file
+- [TODO] Or stay in Wall class as it's wall-specific
 
 Commented-out Code
 8. lineIntersectsCircle(x1, y1, x2, y2, cx, cy, r)
-- More general version of lineIntersectsNode
-- Should be moved to geometry.ts if uncommented
+- [TODO] More general version of lineIntersectsNode
+- [TODO] Should be moved to geometry.ts if uncommented
 9. isPathBlocked(node1, node2)
-- Game-specific logic
-- Could be moved to a gameLogic.ts or similar
+- [TODO] Game-specific logic
+- [TODO] Could be moved to a gameLogic.ts or similar
 
 
 Proposed Modular Structure
@@ -100,6 +102,8 @@ These affect development velocity, code maintainability, and scalability.
    * Inconsistent use of `.js` and `.ts` files.
    * `tsconfig.json` needs tightening (`noEmit: true`, `strict: false`).
    * Moving to stricter, consistent TS improves safety, readability, and tooling support.
+   * [DONE] Core gameplay and entrypoint are TypeScript (`src/main.ts`, `src/game.ts`, etc) and compile into `dist/`.
+   * [PARTIAL] Tests are still mixed JS/TS; TS strictness is still relaxed by design.
 
 2. **Lack of Documentation (JSDoc / TypeDoc)**
 
@@ -110,6 +114,7 @@ These affect development velocity, code maintainability, and scalability.
 
    * No structured test coverage makes refactoring risky.
    * Expand Jest setup and add testing patterns/utilities.
+   * [DONE] Jest tests exist under `__tests__/` (including DOM tests + TS tests like `Wall.test.ts`).
 
 4. **Code Duplication**
 
@@ -125,6 +130,7 @@ These affect development velocity, code maintainability, and scalability.
 
    * Current setup copies files; no bundler.
    * Consider Vite, esbuild, or Webpack for bundling, optimizations, and DX.
+   * [PARTIAL] Build is now TypeScript-driven (`tsc` + import-fixer) and outputs to `dist/`, but still no bundler.
 
 7. **No Environment Management**
 
@@ -235,6 +241,7 @@ Nice to have, not blocking current progress.
 26. **Dependency Management / npm-check-updates**
 
 * Keep devDependencies up to date to avoid security and compatibility issues.
+* [PARTIAL] Dependencies are pinned in `package-lock.json`; update cadence is still manual.
 
 ---
 
