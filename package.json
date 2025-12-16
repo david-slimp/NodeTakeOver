@@ -1,6 +1,6 @@
 {
     "name": "NodeTakeOver",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "description": "A strategy game where players take over nodes on a gameboard.",
     "main": "dist/main.js",
     "scripts": {
@@ -14,13 +14,17 @@
         "format:check": "prettier --check .",
         "lint": "eslint . --ext .js,.ts --config eslint.config.cjs",
         "lint:fix": "eslint . --ext .js,.ts --fix --config eslint.config.cjs",
+        "lint:staged": "lint-staged",
         "prepare": "husky install",
         "clean": "rm -rf dist dist-tools",
         "prebuild": "npm run clean",
-        "build": "mkdir -p dist && npm run build:tools && tsc && cp -r src/*.js dist/ 2>/dev/null || true && cp -r src/types dist/ 2>/dev/null || true && cp -r index.html style.css screenshot.png README.md CHANGELOG.md LICENSE dist/ && (cp -r assets/ dist/ 2>/dev/null || true) && cp -n .gitignore dist/ 2>/dev/null || true && node dist-tools/fix-imports.js",
+        "build": "mkdir -p dist && npm run build:tools && tsc && cp -r src/*.js dist/ 2>/dev/null || true && cp -r src/types dist/ 2>/dev/null || true && cp -r style.css README.md CHANGELOG.md LICENSE dist/ && node -e \"const fs=require('fs');const v=require('./package.json').version;let h=fs.readFileSync('scripts/index.prod.html','utf8');h=h.replaceAll('__APP_VERSION__',v);fs.writeFileSync('dist/index.html',h);\" && cp -r assets dist/ && cp assets/screenshot.png assets/nodetakeover-thumb-01.png assets/nodetakeover-thumb-02.webp dist/ && cp -n .gitignore dist/ 2>/dev/null || true && node dist-tools/fix-imports.js",
         "postbuild": "echo '✅ Build complete! The dist/ directory is ready for deployment.' && echo '📁 Contents of dist/:' && ls -la dist/",
         "ensure-port": "npm run build:tools && node dist-tools/scripts/ensure-port-8000.js",
-        "dev": "npm run build && npm run ensure-port && echo '🚀 Starting development server on port 8000...' && (cd dist && python3 -m http.server 8000 --directory .)",
+        "dev": "npm run ensure-port && vite",
+        "dev:static": "npm run build && npm run ensure-port && echo '🚀 Starting development server on port 8000...' && (cd dist && python3 -m http.server 8000 --directory .)",
+        "deploy:prod": "bash scripts/deploy.sh",
+        "preview": "vite preview --port 8000 --strictPort",
         "dev:test": "npm run build && npm test -- __tests__/Node.test.js && npm run smoke-test",
         "start": "npm run dev"
     },
@@ -61,14 +65,15 @@
         "lint-staged": "^16.1.4",
         "prettier": "^3.6.2",
         "puppeteer": "^24.15.0",
+        "vite": "^5.4.0",
         "typescript": "^5.9.2"
     },
     "lint-staged": {
-        "*.js": [
+        "*.{js,ts}": [
             "eslint --fix",
             "prettier --write"
         ],
-        "*.html": [
+        "*.{html,css,md,json}": [
             "prettier --write"
         ]
     }

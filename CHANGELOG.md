@@ -1,16 +1,43 @@
 # Changelog
 
+## [0.3.3] - 2025-12-16
+
+### Added
+
+- Modern dark-mode layout with left sidebar and redesigned HUD
+- Centered game-over modal (`#gameOverlay` + `#gameOverModal`) with “Play” action
+- Vite dev server with hot reload on port 8000 (`npm run dev`)
+- Commit-time formatting/linting via Husky + lint-staged (ESLint + Prettier)
+- Production deploy helper via `scripts/deploy.sh` + `.env.example` (`npm run deploy:prod`)
+
+### Changed
+
+- Dev entrypoint now uses Vite (`index.html` loads `/src/main.ts`)
+- Production build now copies `scripts/index.prod.html` to `dist/index.html` (keeps `main.js` for static hosting)
+- Canvas sizing now follows CSS layout and scales for devicePixelRatio
+- Increased UI text sizes in sidebar and modal for readability
+- Moved site images into `assets/` (including `screenshot.png` and the new NodeTakeOver thumbs)
+- Build now ships `assets/` to `dist/assets/` and also copies key images to `dist/` root for simple hosting
+
+### Fixed
+
+- Avoided Vite trying to resolve production-only `main.js` during dev
+- Restart UX keeps the active seed visible (seed input reflects current game after start/restart)
+- Cache-busting for production assets via `?v=<version>` on `style.css` and `main.js`
+
 ## [0.3.2] - 2025-12-15
 
 ### Added
+
 - Centralized UI ownership in `UIRenderer` (HUD + game-over overlay)
 - Game-over restart UX: Enter-to-submit, visible "Go" button, suggested next seed (`seed + 1`)
 - Test coverage for the new UI ownership/restart behavior
 - TypeScript entrypoint + tooling compilation:
-  - App entrypoint migrated to `src/main.ts` (compiled to `dist/main.js`)
-  - Tooling compiled via `tsconfig.tools.json` into `dist-tools/` (e.g. `fix-imports`, `smoke-test`, `browser-test`, `ensure-port`)
+    - App entrypoint migrated to `src/main.ts` (compiled to `dist/main.js`)
+    - Tooling compiled via `tsconfig.tools.json` into `dist-tools/` (e.g. `fix-imports`, `smoke-test`, `browser-test`, `ensure-port`)
 
 ### Changed
+
 - Removed duplicate UI elements from `index.html` (UI is now created/managed by `UIRenderer`)
 - Simplified app startup (now `src/main.ts`) to rely on config defaults and avoid direct DOM wiring for restart/seed
 - Updated `Game.displayGameOver` to delegate UI rendering to `UIRenderer` instead of writing directly into DOM
@@ -23,23 +50,27 @@
 - Gameplay tuning: set `PLAYER_UNIT_SPEED` and `COMPUTER_UNIT_SPEED` to the same slower value and stopped overriding speed at runtime
 
 ### Fixed
+
 - Restart flow now works reliably from both button click and Enter key in the seed field
 - Game lifecycle now starts exactly one `requestAnimationFrame` loop (no double-start from `initGame()`)
 
 ## [0.3.1] - 2025-08-06
 
 ### Added
+
 - Migrated `wall.js` to TypeScript as `wall.ts` with full type safety
 - Comprehensive test suite for Wall class with 100% line coverage
 - Detailed JSDoc documentation for all Wall class methods
 - Made Wall position properties readonly to enforce immutability
 
 ### Changed
+
 - Removed deprecated `wall.js` file as part of TypeScript migration
 - Reduced number of nodes from 20 to 15 for better gameplay balance
 - Increased number of walls from 50 to 80 for more strategic depth
 
 ### Fixed
+
 - Improved wall placement validation to prevent invalid wall positions
 - Enhanced type safety throughout the wall-related code
 - Optimized wall collision detection performance
@@ -47,6 +78,7 @@
 ## [0.3.0] - 2025-08-05
 
 ### Added
+
 - Migrated Node class to TypeScript for better type safety and maintainability
 - Created new NodeRenderer class to separate rendering logic from game logic
 - Added comprehensive test coverage for Node class and NodeRenderer
@@ -55,12 +87,14 @@
 - New dev:test npm script for one-command build, test, and server start
 
 ### Fixed
+
 - Fixed issue with continuous drawNodeChain rendering after UI restart
 - Fixed port handling in smoke tests for cross-platform compatibility
 - Properly handle server process cleanup and restart
 - Fixed debug mode persistence across game restarts
 
 ### Changed
+
 - Separated rendering logic from Node class into dedicated NodeRenderer
 - Improved code organization and type safety with TypeScript
 - Enhanced test automation and reliability

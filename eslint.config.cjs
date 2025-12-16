@@ -25,6 +25,11 @@ const baseConfig = {
             fetch: 'readonly',
             module: 'readonly',
             process: 'readonly',
+            require: 'readonly',
+            exports: 'readonly',
+            __dirname: 'readonly',
+            __filename: 'readonly',
+            NodeJS: 'readonly',
         },
     },
 };
@@ -49,6 +54,15 @@ const testConfig = {
 };
 
 module.exports = [
+    {
+        ignores: ['node_modules/**', 'dist/**', 'dist-tools/**', 'coverage/**', 'drafts/**'],
+    },
+    {
+        plugins: {
+            '@typescript-eslint': typescriptEslint,
+            jsdoc,
+        },
+    },
     js.configs.recommended,
     // Base TypeScript configuration
     {
@@ -59,7 +73,8 @@ module.exports = [
             parserOptions: {
                 ecmaVersion: 'latest',
                 sourceType: 'module',
-                project: './tsconfig.json',
+                project: './tsconfig.eslint.json',
+                tsconfigRootDir: __dirname,
             },
         },
         plugins: {
@@ -97,6 +112,20 @@ module.exports = [
             'no-console': 'warn',
             'no-unused-vars': 'warn',
             'no-undef': 'error',
+        },
+    },
+
+    // Jest setup file configuration
+    {
+        files: ['jest.setup.js'],
+        languageOptions: {
+            globals: {
+                ...baseConfig.languageOptions.globals,
+                jest: 'readonly',
+            },
+        },
+        rules: {
+            'no-undef': 'off',
         },
     },
     

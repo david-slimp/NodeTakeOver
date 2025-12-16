@@ -16,8 +16,13 @@ npm install
 npm run dev
 ```
 
-- Serves the built game from `dist/` at `http://localhost:8000`.
-- `npm run dev` runs a full `npm run build` first.
+- Runs the Vite dev server with hot reload at `http://localhost:8000`.
+
+For the legacy static-server workflow (build then serve `dist/`):
+
+```bash
+npm run dev:static
+```
 
 ## Build
 
@@ -26,7 +31,7 @@ npm run build
 ```
 
 - Compiles TypeScript into `dist/`
-- Copies `index.html`, `style.css`, `screenshot.png`, `LICENSE`, etc into `dist/`
+- Copies `style.css`, `assets/` images, `LICENSE`, etc into `dist/`
 
 ## Tests
 
@@ -47,3 +52,12 @@ More detail lives in `Testing_in_our_dev_env.md`.
 
 Deploy the contents of `dist/` to static hosting (the production site is `https://rock808.com/games/NodeTakeOver/`).
 
+### Production Deploy Script
+
+This repo includes a simple `rsync` deploy helper:
+
+```bash
+cp .env.example .env
+# edit .env
+npm run deploy:prod
+```

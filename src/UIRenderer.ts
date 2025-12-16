@@ -3,26 +3,31 @@
  */
 export class UIRenderer {
     overlay: HTMLDivElement;
+    modal: HTMLDivElement;
     hud: HTMLDivElement;
     statusText: HTMLDivElement;
     playerGoldElement: HTMLDivElement;
     computerGoldElement: HTMLDivElement;
+    seedField: HTMLDivElement;
     seedInput: HTMLInputElement;
     restartButton: HTMLButtonElement;
     restartCallback: ((seed: number | null) => void) | null;
 
     constructor() {
+        this.ensureAppShell();
         this.overlay = this.createOverlay();
+        this.modal = this.createModal();
         this.hud = this.createHUD();
-        this.statusText = this.createStatusElement('statusText', 'status-text');
+        this.statusText = this.createStatusElement('statusText', 'hud-line');
         this.playerGoldElement = this.createStatusElement(
             'playerGold',
-            'player-gold',
+            'score-line player',
         );
         this.computerGoldElement = this.createStatusElement(
             'computerGold',
-            'computer-gold',
+            'score-line computer',
         );
+        this.seedField = this.createSeedField();
         this.seedInput = this.createSeedInput();
         this.restartButton = this.createRestartButton();
         this.restartCallback = null;
@@ -30,32 +35,67 @@ export class UIRenderer {
         this.initializeUI();
     }
 
+    private ensureAppShell(): void {
+        const existingApp = document.getElementById('app');
+        const existingSidebar = document.getElementById('sidebar');
+        const existingGameArea = document.getElementById('gameArea');
+
+        if (existingApp && existingSidebar && existingGameArea) return;
+
+        const app =
+            (existingApp as HTMLDivElement | null) ||
+            document.createElement('div');
+        app.id = 'app';
+
+        const sidebar =
+            (existingSidebar as HTMLElement | null) ||
+            document.createElement('aside');
+        sidebar.id = 'sidebar';
+
+        const gameArea =
+            (existingGameArea as HTMLElement | null) ||
+            document.createElement('main');
+        gameArea.id = 'gameArea';
+
+        if (!existingSidebar) {
+            app.appendChild(sidebar);
+        }
+        if (!existingGameArea) {
+            app.appendChild(gameArea);
+        }
+
+        if (!existingApp) {
+            document.body.appendChild(app);
+        }
+    }
+
     /**
      * Creates the main overlay element (used for game-over modal).
      */
     private createOverlay(): HTMLDivElement {
         const existing = document.getElementById('gameOverlay');
-        const overlay = (existing as HTMLDivElement | null) || document.createElement('div');
+        const overlay =
+            (existing as HTMLDivElement | null) ||
+            document.createElement('div');
         overlay.id = 'gameOverlay';
-        overlay.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-family: Arial, sans-serif;
-            z-index: 1000;
-        `;
         if (!existing) {
-            document.body.appendChild(overlay);
+            const gameArea = document.getElementById('gameArea');
+            (gameArea || document.body).appendChild(overlay);
         }
         return overlay;
+    }
+
+    private createModal(): HTMLDivElement {
+        const existing = document.getElementById('gameOverModal');
+        const modal =
+            (existing as HTMLDivElement | null) ||
+            document.createElement('div');
+        modal.id = 'gameOverModal';
+        modal.className = 'modal';
+        if (modal.parentNode !== this.overlay) {
+            this.overlay.appendChild(modal);
+        }
+        return modal;
     }
 
     /**
@@ -63,25 +103,13 @@ export class UIRenderer {
      */
     private createHUD(): HTMLDivElement {
         const existing = document.getElementById('gameHUD');
-        const hud = (existing as HTMLDivElement | null) || document.createElement('div');
+        const hud =
+            (existing as HTMLDivElement | null) ||
+            document.createElement('div');
         hud.id = 'gameHUD';
-        hud.style.cssText = `
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 10px 16px;
-            margin: 10px 0;
-            color: #fff;
-            font-family: Arial, sans-serif;
-        `;
         if (!existing) {
-            const titleSection = document.getElementById('titleSection');
-            if (titleSection && titleSection.parentNode) {
-                titleSection.parentNode.insertBefore(hud, titleSection.nextSibling);
-            } else {
-                document.body.insertBefore(hud, document.body.firstChild);
-            }
+            const sidebar = document.getElementById('sidebar');
+            (sidebar || document.body).appendChild(hud);
         }
         return hud;
     }
@@ -92,40 +120,50 @@ export class UIRenderer {
     private createStatusElement(id: string, className: string): HTMLDivElement {
         const existing = document.getElementById(id);
         const element =
-            (existing as HTMLDivElement | null) || document.createElement('div');
+            (existing as HTMLDivElement | null) ||
+            document.createElement('div');
         element.id = id;
         element.className = className;
-        element.style.margin = '0 6px';
         if (element.parentNode !== this.hud) {
             this.hud.appendChild(element);
         }
         return element;
     }
 
+    private createSeedField(): HTMLDivElement {
+        const existing = document.getElementById(
+            'seedField',
+        ) as HTMLDivElement | null;
+        if (existing) return existing;
+
+        const container = document.createElement('div');
+        container.id = 'seedField';
+        container.className = 'seed-field';
+
+        const label = document.createElement('label');
+        label.htmlFor = 'seedInput';
+        label.textContent = 'Seed';
+
+        container.appendChild(label);
+        this.hud.appendChild(container);
+        return container;
+    }
+
     /**
      * Creates the seed input element.
      */
     private createSeedInput(): HTMLInputElement {
-        const existing = document.getElementById('seedInput') as HTMLInputElement | null;
+        const existing = document.getElementById(
+            'seedInput',
+        ) as HTMLInputElement | null;
         if (existing) return existing;
-
-        const container = document.createElement('div');
-        container.style.margin = '0 6px';
-
-        const label = document.createElement('label');
-        label.htmlFor = 'seedInput';
-        label.textContent = 'Seed: ';
-        label.style.marginRight = '6px';
 
         const input = document.createElement('input');
         input.type = 'number';
         input.id = 'seedInput';
-        input.style.padding = '5px';
         input.placeholder = 'Enter seed (optional)';
 
-        container.appendChild(label);
-        container.appendChild(input);
-        this.hud.appendChild(container);
+        this.seedField.appendChild(input);
 
         return input;
     }
@@ -143,7 +181,6 @@ export class UIRenderer {
         if (typeof this.restartCallback !== 'function') return;
         const seed = this.getSeed();
         this.hideOverlay();
-        this.clearSeed();
         this.restartCallback(seed);
     }
 
@@ -153,19 +190,10 @@ export class UIRenderer {
     private createRestartButton(): HTMLButtonElement {
         const existing = document.getElementById('restartButton');
         const button =
-            (existing as HTMLButtonElement | null) || document.createElement('button');
+            (existing as HTMLButtonElement | null) ||
+            document.createElement('button');
         button.id = 'restartButton';
-        button.textContent = 'Restart (R)';
-        button.style.cssText = `
-            padding: 10px 20px;
-            font-size: 18px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            display: inline-block;
-        `;
+        if (!button.textContent) button.textContent = 'Restart (R)';
         if (button.parentNode !== this.hud) {
             this.hud.appendChild(button);
         }
@@ -191,19 +219,36 @@ export class UIRenderer {
         this.statusText.textContent = message;
         this.playerGoldElement.textContent = `Player Gold: ${playerGold}`;
         this.computerGoldElement.textContent = `Computer Gold: ${computerGold}`;
-        this.restartButton.textContent = 'Go (Enter)';
 
-        if (typeof suggestedSeed === 'number' && Number.isFinite(suggestedSeed)) {
+        this.restartButton.textContent = 'Play';
+
+        if (
+            typeof suggestedSeed === 'number' &&
+            Number.isFinite(suggestedSeed)
+        ) {
             this.seedInput.value = String(suggestedSeed);
         }
 
-        // Temporarily render the HUD inside the overlay for game-over.
-        if (this.hud.parentNode !== this.overlay) {
-            this.overlay.appendChild(this.hud);
-        }
+        this.modal.innerHTML = '';
+
+        const title = document.createElement('div');
+        title.className = 'modal-title';
+        title.textContent = message;
+
+        const subtitle = document.createElement('div');
+        subtitle.className = 'modal-subtitle';
+        subtitle.textContent =
+            'Enter a seed (or use the suggested one) to start the next match.';
+
+        this.modal.appendChild(title);
+        this.modal.appendChild(subtitle);
+        this.modal.appendChild(this.playerGoldElement);
+        this.modal.appendChild(this.computerGoldElement);
+        this.modal.appendChild(this.seedField);
+        this.modal.appendChild(this.restartButton);
+
         this.overlay.style.display = 'flex';
 
-        // Focus the input for faster restart.
         this.seedInput.focus();
         this.seedInput.select();
     }
@@ -213,17 +258,21 @@ export class UIRenderer {
      */
     hideOverlay(): void {
         this.overlay.style.display = 'none';
-        // Put the HUD back into the normal document flow.
-        if (this.hud.parentNode === this.overlay) {
-            const titleSection = document.getElementById('titleSection');
-            if (titleSection && titleSection.parentNode) {
-                titleSection.parentNode.insertBefore(
-                    this.hud,
-                    titleSection.nextSibling,
-                );
-            } else {
-                document.body.insertBefore(this.hud, document.body.firstChild);
-            }
+        if (this.playerGoldElement.parentNode !== this.hud) {
+            this.hud.appendChild(this.playerGoldElement);
+        }
+        if (this.computerGoldElement.parentNode !== this.hud) {
+            this.hud.appendChild(this.computerGoldElement);
+        }
+        if (this.seedField.parentNode !== this.hud) {
+            this.hud.appendChild(this.seedField);
+        }
+        if (this.restartButton.parentNode !== this.hud) {
+            this.hud.appendChild(this.restartButton);
+        }
+
+        if (this.restartButton.textContent !== 'Restart (R)') {
+            this.restartButton.textContent = 'Restart (R)';
         }
     }
 
@@ -266,12 +315,13 @@ export class UIRenderer {
     /**
      * Sets up keyboard shortcuts.
      */
-    setupKeyboardShortcuts(restartCallback: (seed: number | null) => void): void {
+    setupKeyboardShortcuts(
+        restartCallback: (seed: number | null) => void,
+    ): void {
         document.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'r') {
                 const seed = this.getSeed();
                 this.hideOverlay();
-                this.clearSeed();
                 restartCallback(seed);
             }
         });
