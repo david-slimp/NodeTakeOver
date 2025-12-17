@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - Unreleased
+
+### Changed
+
+- Unit dispatch rate now scales based on how full a node is (slower when low, faster when high); this affects how rapidly units are sent, not how fast they travel
+- Slowed unit generation for all nodes (total 36% slower vs previous baseline)
+
 ## [0.3.3] - 2025-12-16
 
 ### Added

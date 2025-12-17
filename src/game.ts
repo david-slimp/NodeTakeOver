@@ -78,7 +78,6 @@ export class Game {
     boundHandleResize: (() => void) | null;
 
     lastFrameTime: number;
-    continuousFlowTimer: number;
     unitGenerationTimer: number;
 
     debugMode: boolean;
@@ -158,7 +157,6 @@ export class Game {
         this.boundHandleResize = null;
 
         this.lastFrameTime = 0;
-        this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
 
         this.debugMode = debugMode;
@@ -297,7 +295,6 @@ export class Game {
         }
         this.initGame();
         this.lastFrameTime = 0;
-        this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
         this.startGameLoop();
     }
@@ -321,7 +318,6 @@ export class Game {
 
         this.setupEventListeners();
 
-        this.continuousFlowTimer = 0;
         this.unitGenerationTimer = 0;
         this.lastFrameTime = performance.now();
     }
@@ -545,8 +541,14 @@ export class Game {
                 targetNode !== this.selectedNode &&
                 !this.isPathBlocked(this.selectedNode, targetNode)
             ) {
+                if (this.selectedNode.destination !== targetNode) {
+                    this.selectedNode.dispatchTimerSeconds = 0;
+                }
                 this.selectedNode.destination = targetNode;
             } else {
+                if (this.selectedNode.destination) {
+                    this.selectedNode.dispatchTimerSeconds = 0;
+                }
                 this.selectedNode.destination = null;
             }
         }
@@ -634,14 +636,7 @@ export class Game {
             });
             this.unitGenerationTimer -= generationInterval;
         }
-
-        this.continuousFlowTimer += deltaTime;
-        const dispatchInterval = 1 / cfg.PLAYER_UNIT_DISPATCH_SPEED;
-
-        while (this.continuousFlowTimer >= dispatchInterval) {
-            this.handleContinuousFlow();
-            this.continuousFlowTimer -= dispatchInterval;
-        }
+        this.handleContinuousFlow(deltaTime);
     }
 
     updateAttackAnimations(_deltaTime: number): void {
@@ -761,7 +756,16 @@ export class Game {
         });
     }
 
-    handleContinuousFlow(): void {
+    private getDispatchSpeedMultiplier(node: Node): number {
+        if (!(node.maxUnits > 0)) return 1;
+        const ratio = node.units / node.maxUnits;
+        if (ratio <= 0.25) return 0.9;
+        if (ratio <= 0.5) return 1;
+        if (ratio < 0.76) return 1.1;
+        return 1.5;
+    }
+
+    handleContinuousFlow(deltaTime: number): void {
         if (!this.gameActive) return;
 
         if (
@@ -772,17 +776,68 @@ export class Game {
         }
 
         this.nodes.forEach((node) => {
-            if (node.owner === 'player' && node.destination && node.units > 1) {
-                this.sendUnits(node, node.destination, cfg.PLAYER_UNIT_SPEED);
-            } else if (
-                node.owner === 'computer' &&
-                this.computerCanAct &&
-                node.units > 10
-            ) {
+            if (node.owner === 'player') {
+                if (!node.destination || node.units <= 1) return;
+                if (!(cfg.PLAYER_UNIT_DISPATCH_SPEED > 0)) return;
+
+                node.dispatchTimerSeconds += deltaTime;
+                while (true) {
+                    if (!node.destination || node.units <= 1) return;
+                    const multiplier = this.getDispatchSpeedMultiplier(node);
+                    const effectiveDispatchSpeed =
+                        cfg.PLAYER_UNIT_DISPATCH_SPEED * multiplier;
+                    if (!(effectiveDispatchSpeed > 0)) return;
+                    const dispatchInterval = 1 / effectiveDispatchSpeed;
+                    if (node.dispatchTimerSeconds < dispatchInterval) return;
+
+                    this.sendUnits(
+                        node,
+                        node.destination,
+                        cfg.PLAYER_UNIT_SPEED,
+                    );
+                    node.dispatchTimerSeconds -= dispatchInterval;
+                }
+            }
+
+            if (node.owner === 'computer') {
+                if (!this.computerCanAct || node.units <= 10) return;
+                if (!(cfg.COMPUTER_UNIT_DISPATCH_SPEED > 0)) return;
+
                 const targetNode = this.findTargetNode(node);
-                if (targetNode && !this.isPathBlocked(node, targetNode)) {
-                    node.destination = targetNode;
-                    this.sendUnits(node, targetNode, cfg.COMPUTER_UNIT_SPEED);
+                if (!targetNode || this.isPathBlocked(node, targetNode)) return;
+                if (node.destination !== targetNode) {
+                    node.dispatchTimerSeconds = 0;
+                }
+                node.destination = targetNode;
+
+                node.dispatchTimerSeconds += deltaTime;
+                while (true) {
+                    if (
+                        !this.computerCanAct ||
+                        !node.destination ||
+                        node.units <= 10
+                    ) {
+                        return;
+                    }
+                    if (this.isPathBlocked(node, node.destination)) {
+                        node.destination = null;
+                        node.dispatchTimerSeconds = 0;
+                        return;
+                    }
+
+                    const multiplier = this.getDispatchSpeedMultiplier(node);
+                    const effectiveDispatchSpeed =
+                        cfg.COMPUTER_UNIT_DISPATCH_SPEED * multiplier;
+                    if (!(effectiveDispatchSpeed > 0)) return;
+                    const dispatchInterval = 1 / effectiveDispatchSpeed;
+                    if (node.dispatchTimerSeconds < dispatchInterval) return;
+
+                    this.sendUnits(
+                        node,
+                        node.destination,
+                        cfg.COMPUTER_UNIT_SPEED,
+                    );
+                    node.dispatchTimerSeconds -= dispatchInterval;
                 }
             }
         });
@@ -897,6 +952,7 @@ export class Game {
             Math.round(toNode.generationSpeed * 10 + 3) / 10;
 
         toNode.destination = null;
+        toNode.dispatchTimerSeconds = 0;
         if (attackerOwner === 'computer') {
             this.computerCanAct = false;
             this.computerLastCaptureTime = Date.now();

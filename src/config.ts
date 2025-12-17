@@ -7,7 +7,7 @@ import {GameConfig, SeededRandomGenerator} from './types/config';
 export const cfg: GameConfig = {
     // Debug and version
     VERBOSE: 1, // 0=off 1=normal 2=debug
-    VERSION: '0.3.3',
+    VERSION: '0.4.0',
 
     // Game constants
     GAME_SPEED: 1, // 1=normal 2=faster
@@ -31,14 +31,14 @@ export const cfg: GameConfig = {
     MAX_UNITS: 100, // max units for player / computer initial node
     PLAYER_START_UNITS: 50,
     PLAYER_COLOR: '#905090',
-    PLAYER_UNIT_GENERATION_SPEED: 6, // Units generated per second for player
+    PLAYER_UNIT_GENERATION_SPEED: 3.84, // Units generated per second for player
     PLAYER_UNIT_SPEED: 10, // Speed at which player's units travel
     PLAYER_UNIT_DISPATCH_SPEED: 6, // Units dispatched per second for player
 
     // Computer configuration
     COMPUTER_START_UNITS: 80,
     COMPUTER_COLOR: '#e74c3c',
-    COMPUTER_UNIT_GENERATION_SPEED: 6, // Units generated per second for the computer
+    COMPUTER_UNIT_GENERATION_SPEED: 3.84, // Units generated per second for the computer
     COMPUTER_UNIT_SPEED: 10, // Speed at which computer's units travel
     COMPUTER_UNIT_DISPATCH_SPEED: 6, // Units dispatched per second for computer
     COMPUTER_DELAY_NEW_BASE: 3000, // 3 seconds in milliseconds
@@ -47,7 +47,7 @@ export const cfg: GameConfig = {
     UNCONTROLLED_MAX_UNITS: 0.75,
     UNCONTROLLED_START_UNITS: 20,
     UNCONTROLLED_COLOR: '#95a5a6',
-    UNCONTROLLED_UNIT_GENERATION_SPEED: 3, // Uncontrolled bases generate units
+    UNCONTROLLED_UNIT_GENERATION_SPEED: 1.92, // Uncontrolled bases generate units
 };
 
 /**

@@ -1,6 +1,6 @@
 // src/node.ts
 
-import { cfg } from './config';
+import {cfg} from './config';
 
 /**
  * Represents the possible owners of a node in the game.
@@ -14,7 +14,7 @@ export type NodeOwner = 'player' | 'computer' | null;
  * Represents a node in the game, handling data and game logic only.
  * Each node has a position, unit count, owner, and other game-related properties.
  * Rendering is handled by the NodeRenderer class.
- * 
+ *
  * @property {number} x - The x-coordinate of the node's center
  * @property {number} y - The y-coordinate of the node's center
  * @property {number} units - Current number of units in the node
@@ -34,13 +34,14 @@ export class Node {
     owner: NodeOwner;
     maxUnits: number;
     generationSpeed: number;
+    dispatchTimerSeconds: number;
     destination: Node | null;
     next: Node | null;
     radius: number;
 
     /**
      * Creates a new Node instance.
-     * 
+     *
      * @param {number} x - The x-coordinate of the node's center
      * @param {number} y - The y-coordinate of the node's center
      * @param {number} units - Initial number of units in the node
@@ -48,7 +49,14 @@ export class Node {
      * @param {NodeOwner} [owner=null] - The initial owner of the node (defaults to neutral)
      * @param {number} [radius=cfg.nodeRadius] - The visual radius of the node
      */
-    constructor(x: number, y: number, units: number, color: string, owner: NodeOwner = null, radius: number = cfg.nodeRadius) {
+    constructor(
+        x: number,
+        y: number,
+        units: number,
+        color: string,
+        owner: NodeOwner = null,
+        radius: number = cfg.nodeRadius,
+    ) {
         this.x = x;
         this.y = y;
         this.units = units;
@@ -56,22 +64,24 @@ export class Node {
         this.owner = owner;
         this.radius = radius;
         this.maxUnits = owner ? cfg.MAX_UNITS : cfg.UNCONTROLLED_MAX_UNITS;
-        this.generationSpeed = owner === 'player'
-            ? cfg.PLAYER_UNIT_GENERATION_SPEED
-            : owner === 'computer'
-                ? cfg.COMPUTER_UNIT_GENERATION_SPEED
-                : cfg.UNCONTROLLED_UNIT_GENERATION_SPEED;
+        this.generationSpeed =
+            owner === 'player'
+                ? cfg.PLAYER_UNIT_GENERATION_SPEED
+                : owner === 'computer'
+                  ? cfg.COMPUTER_UNIT_GENERATION_SPEED
+                  : cfg.UNCONTROLLED_UNIT_GENERATION_SPEED;
+        this.dispatchTimerSeconds = 0;
         this.destination = null;
         this.next = null;
 
         if (cfg.VERBOSE >= 2) {
-            console.log('Node created at:', { x, y, color, owner });
+            console.log('Node created at:', {x, y, color, owner});
         }
     }
 
     /**
      * Finds and returns the first node at the specified coordinates.
-     * 
+     *
      * @static
      * @param {number} x - The x-coordinate to check
      * @param {number} y - The y-coordinate to check
@@ -82,27 +92,27 @@ export class Node {
         return nodes.find(
             (node) =>
                 Math.sqrt(Math.pow(x - node.x, 2) + Math.pow(y - node.y, 2)) <=
-                node.radius
+                node.radius,
         );
     }
 
     /**
      * Creates a chain of nodes by connecting each node to its nearest neighbor.
      * This is used to create a path through all nodes for game mechanics.
-     * 
+     *
      * @static
      * @param {Node[]} nodes - Array of nodes to connect in a chain
      * @returns {Node[]} The first node in the chain (with 'next' properties linking to subsequent nodes)
-     * 
+     *
      * @example
      * // Returns a chain: node1 -> node2 -> node3 -> node1
      * const chain = Node.createNodeChain([node1, node2, node3]);
      */
     static createNodeChain(nodes: Node[]): Node[] {
         if (nodes.length === 0) return [];
-        
+
         console.log('Creating node chain with', nodes.length, 'nodes');
-        
+
         // Reset the 'next' property for all nodes
         nodes.forEach((node) => (node.next = null));
 
@@ -116,7 +126,10 @@ export class Node {
 
             nodes.forEach((node) => {
                 if (!chain.includes(node)) {
-                    const distance = Node.distanceBetweenNodes(currentNode, node);
+                    const distance = Node.distanceBetweenNodes(
+                        currentNode,
+                        node,
+                    );
                     if (distance < nearestDistance) {
                         nearestDistance = distance;
                         nearestNode = node;
@@ -130,14 +143,14 @@ export class Node {
                 currentNode = nearestNode;
             }
         }
-        
+
         console.log('Node chain created with', chain.length, 'nodes');
         return chain;
     }
 
     /**
      * Calculates the Euclidean distance between two nodes.
-     * 
+     *
      * @static
      * @param {Node} node1 - The first node
      * @param {Node} node2 - The second node
@@ -151,7 +164,7 @@ export class Node {
 
     /**
      * Calculates the distance from this node to another node.
-     * 
+     *
      * @param {Node} other - The other node to measure distance to
      * @returns {number} The distance to the other node
      */
@@ -161,7 +174,7 @@ export class Node {
 
     /**
      * Checks if the given point (x,y) is within this node's boundaries.
-     * 
+     *
      * @param {number} x - The x-coordinate of the point to check
      * @param {number} y - The y-coordinate of the point to check
      * @returns {boolean} True if the point is inside the node's radius, false otherwise

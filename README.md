@@ -14,6 +14,7 @@ Production: https://rock808.com/games/NodeTakeOver/
 - **Computer AI**: Play against an AI opponent
 - **Procedural Generation**: Unique game boards generated from seed values for endless replayability
 - **Unit Management**: Generate and dispatch units to capture enemy nodes
+- **Dynamic Dispatch Rate**: Unit send rate scales with how full a node is (travel speed is unchanged)
 - **Obstacle System**: Navigate around walls that block unit movement
 - **Responsive Design**: Play on various screen sizes
 - **Customizable Settings**: Adjust game parameters for different difficulty levels
