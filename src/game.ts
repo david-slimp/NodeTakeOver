@@ -78,11 +78,15 @@ export class Game {
 
     boundHandlePointerDown: ((event: PointerLikeEvent) => void) | null;
     boundHandlePointerUp: ((event: PointerLikeEvent) => void) | null;
+    boundHandlePointerMove: ((event: PointerLikeEvent) => void) | null;
     boundHandleKeydown: ((event: KeyboardEvent) => void) | null;
     boundHandleResize: (() => void) | null;
 
     lastFrameTime: number;
     unitGenerationTimer: number;
+
+    private isPlayerAiming: boolean;
+    private aimPoint: {x: number; y: number} | null;
 
     debugMode: boolean;
 
@@ -158,11 +162,15 @@ export class Game {
 
         this.boundHandlePointerDown = null;
         this.boundHandlePointerUp = null;
+        this.boundHandlePointerMove = null;
         this.boundHandleKeydown = null;
         this.boundHandleResize = null;
 
         this.lastFrameTime = 0;
         this.unitGenerationTimer = 0;
+
+        this.isPlayerAiming = false;
+        this.aimPoint = null;
 
         this.debugMode = debugMode;
 
@@ -471,8 +479,26 @@ export class Game {
                 this.boundHandlePointerUp as unknown as EventListener,
             );
             this.canvas.removeEventListener(
+                'mouseleave',
+                this.boundHandlePointerUp as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
                 'touchend',
                 this.boundHandlePointerUp as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
+                'touchcancel',
+                this.boundHandlePointerUp as unknown as EventListener,
+            );
+        }
+        if (this.boundHandlePointerMove) {
+            this.canvas.removeEventListener(
+                'mousemove',
+                this.boundHandlePointerMove as unknown as EventListener,
+            );
+            this.canvas.removeEventListener(
+                'touchmove',
+                this.boundHandlePointerMove as unknown as EventListener,
             );
         }
         if (this.boundHandleKeydown) {
@@ -481,6 +507,7 @@ export class Game {
 
         this.boundHandlePointerDown = this.handlePointerDown.bind(this);
         this.boundHandlePointerUp = this.handlePointerUp.bind(this);
+        this.boundHandlePointerMove = this.handlePointerMove.bind(this);
         this.boundHandleKeydown = this.handleKeydown.bind(this);
 
         this.canvas.addEventListener(
@@ -492,6 +519,14 @@ export class Game {
             this.boundHandlePointerUp as unknown as EventListener,
         );
         this.canvas.addEventListener(
+            'mouseleave',
+            this.boundHandlePointerUp as unknown as EventListener,
+        );
+        this.canvas.addEventListener(
+            'mousemove',
+            this.boundHandlePointerMove as unknown as EventListener,
+        );
+        this.canvas.addEventListener(
             'touchstart',
             this.boundHandlePointerDown as unknown as EventListener,
             {passive: false},
@@ -499,6 +534,16 @@ export class Game {
         this.canvas.addEventListener(
             'touchend',
             this.boundHandlePointerUp as unknown as EventListener,
+            {passive: false},
+        );
+        this.canvas.addEventListener(
+            'touchcancel',
+            this.boundHandlePointerUp as unknown as EventListener,
+            {passive: false},
+        );
+        this.canvas.addEventListener(
+            'touchmove',
+            this.boundHandlePointerMove as unknown as EventListener,
             {passive: false},
         );
         document.addEventListener('keydown', this.boundHandleKeydown);
@@ -529,11 +574,51 @@ export class Game {
         }
         const {x, y} = this.getEventPoint(event);
         this.selectedNode = Node.getNodeAt(x, y, this.nodes) ?? null;
+        this.isPlayerAiming = Boolean(
+            this.selectedNode && this.selectedNode.owner === 'player',
+        );
+        this.aimPoint =
+            this.isPlayerAiming && this.selectedNode
+                ? {x: this.selectedNode.x, y: this.selectedNode.y}
+                : null;
+    }
+
+    private getNodeNearPoint(
+        x: number,
+        y: number,
+        extraRadius = 5,
+    ): Node | undefined {
+        return this.nodes.find((node) => {
+            const dx = x - node.x;
+            const dy = y - node.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance <= node.radius + extraRadius;
+        });
+    }
+
+    handlePointerMove(event: PointerLikeEvent): void {
+        if (!this.isPlayerAiming) return;
+        if (this.isPaused) return;
+        const {x, y} = this.getEventPoint(event);
+        const nearbyNode = this.getNodeNearPoint(x, y);
+        this.aimPoint = nearbyNode
+            ? {x: nearbyNode.x, y: nearbyNode.y}
+            : {x, y};
+        if ('touches' in event) {
+            event.preventDefault();
+        }
     }
 
     handlePointerUp(event: PointerLikeEvent): void {
         if (this.isPaused) {
             event.preventDefault();
+            return;
+        }
+
+        const eventType = (event as unknown as {type?: string}).type;
+        this.isPlayerAiming = false;
+        this.aimPoint = null;
+        if (eventType === 'mouseleave' || eventType === 'touchcancel') {
             return;
         }
 
@@ -557,6 +642,52 @@ export class Game {
                 this.selectedNode.destination = null;
             }
         }
+    }
+
+    private lineSegmentIntersectionPoint(
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        x3: number,
+        y3: number,
+        x4: number,
+        y4: number,
+    ): {x: number; y: number; t: number} | null {
+        const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+        if (denom === 0) return null;
+
+        const t = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+        const u = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+
+        if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+        return {x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1), t};
+    }
+
+    private getAimLineWallHit(
+        fromX: number,
+        fromY: number,
+        toX: number,
+        toY: number,
+    ): {x: number; y: number; t: number} | null {
+        let nearest: {x: number; y: number; t: number} | null = null;
+        for (const wall of this.walls) {
+            const hit = this.lineSegmentIntersectionPoint(
+                fromX,
+                fromY,
+                toX,
+                toY,
+                wall.x1,
+                wall.y1,
+                wall.x2,
+                wall.y2,
+            );
+            if (!hit) continue;
+            if (!nearest || hit.t < nearest.t) {
+                nearest = hit;
+            }
+        }
+        return nearest;
     }
 
     handleKeydown(event: KeyboardEvent): void {
@@ -698,6 +829,41 @@ export class Game {
                 Math.PI * 2,
             );
             this.ctx.stroke();
+        }
+
+        if (
+            !this.isPaused &&
+            this.isPlayerAiming &&
+            this.selectedNode &&
+            this.selectedNode.owner === 'player' &&
+            this.aimPoint
+        ) {
+            const startX = this.selectedNode.x;
+            const startY = this.selectedNode.y;
+            const hit = this.getAimLineWallHit(
+                startX,
+                startY,
+                this.aimPoint.x,
+                this.aimPoint.y,
+            );
+            const endX = hit ? hit.x : this.aimPoint.x;
+            const endY = hit ? hit.y : this.aimPoint.y;
+
+            this.ctx.save();
+            this.ctx.strokeStyle = '#facc15';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(startX, startY);
+            this.ctx.lineTo(endX, endY);
+            this.ctx.stroke();
+
+            if (hit) {
+                this.ctx.fillStyle = '#ef4444';
+                this.ctx.beginPath();
+                this.ctx.arc(hit.x, hit.y, 4, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            this.ctx.restore();
         }
 
         if (this.isPaused) {

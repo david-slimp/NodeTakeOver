@@ -1,10 +1,13 @@
 # Changelog
 
-## [0.4.0] - Unreleased
+## [0.4.0] - 2025-12-18
+
+### Added
+
+- Line-of-sight aim helper: while dragging from a selected player node, a yellow line follows the mouse, snaps to node centers, and stops at walls
 
 ### Changed
 
-- Unit dispatch rate now scales based on how full a node is (slower when low, faster when high); this affects how rapidly units are sent, not how fast they travel
 - Unit dispatch rate now scales based on how full a node is (this affects how rapidly units are sent, not how fast they travel): 1–25%: 0.9x, 26–50%: 1.0x, 51–75%: 1.1x, 76–95%: 1.5x, 96%+: 2.25x
 - Slowed unit generation for all nodes (total 36% slower vs previous baseline)
 - Improved computer targeting so it periodically re-evaluates targets, avoids wall-blocked routes, and can reinforce its own nodes when needed (`COMPUTER_STRATEGY_REEVALUATION_SECONDS`)
