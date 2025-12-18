@@ -45,4 +45,5 @@ export interface GameConfig {
     COMPUTER_UNIT_SPEED: number;
     COMPUTER_UNIT_DISPATCH_SPEED: number;
     COMPUTER_DELAY_NEW_BASE: number;
+    COMPUTER_STRATEGY_REEVALUATION_SECONDS: number;
 }

@@ -42,6 +42,7 @@ export const cfg: GameConfig = {
     COMPUTER_UNIT_SPEED: 10, // Speed at which computer's units travel
     COMPUTER_UNIT_DISPATCH_SPEED: 6, // Units dispatched per second for computer
     COMPUTER_DELAY_NEW_BASE: 3000, // 3 seconds in milliseconds
+    COMPUTER_STRATEGY_REEVALUATION_SECONDS: 15,
 
     // Uncontrolled nodes configuration
     UNCONTROLLED_MAX_UNITS: 0.75,

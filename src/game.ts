@@ -69,6 +69,10 @@ export class Game {
 
     computerCanAct: boolean;
     computerLastCaptureTime: number;
+    private computerStrategySecondsRemaining: WeakMap<
+        Node,
+        {reevaluationSeconds: number}
+    >;
 
     gameLoopId: number | null;
 
@@ -148,6 +152,7 @@ export class Game {
 
         this.computerCanAct = false;
         this.computerLastCaptureTime = Date.now();
+        this.computerStrategySecondsRemaining = new WeakMap();
 
         this.gameLoopId = null;
 
@@ -762,7 +767,49 @@ export class Game {
         if (ratio <= 0.25) return 0.9;
         if (ratio <= 0.5) return 1;
         if (ratio < 0.76) return 1.1;
-        return 1.5;
+        if (ratio < 0.96) return 1.5;
+        return 2.25;
+    }
+
+    private getComputerStrategyState(node: Node): {
+        reevaluationSeconds: number;
+    } {
+        const existing = this.computerStrategySecondsRemaining.get(node);
+        if (existing) return existing;
+        const created = {reevaluationSeconds: 0};
+        this.computerStrategySecondsRemaining.set(node, created);
+        return created;
+    }
+
+    private pickComputerDestination(fromNode: Node): Node | null {
+        const reachableNodes = this.nodes.filter(
+            (node) => node !== fromNode && !this.isPathBlocked(fromNode, node),
+        );
+
+        const reachableNonComputerNodes = reachableNodes.filter(
+            (node) => node.owner !== 'computer',
+        );
+
+        if (reachableNonComputerNodes.length > 0) {
+            reachableNonComputerNodes.sort(
+                (a, b) => fromNode.distanceTo(a) - fromNode.distanceTo(b),
+            );
+            return reachableNonComputerNodes[0];
+        }
+
+        const reachableComputerNodes = reachableNodes.filter(
+            (node) => node.owner === 'computer',
+        );
+
+        if (reachableComputerNodes.length === 0) return null;
+
+        reachableComputerNodes.sort((a, b) => {
+            const aRatio = a.maxUnits > 0 ? a.units / a.maxUnits : 1;
+            const bRatio = b.maxUnits > 0 ? b.units / b.maxUnits : 1;
+            if (aRatio !== bRatio) return aRatio - bRatio;
+            return fromNode.distanceTo(a) - fromNode.distanceTo(b);
+        });
+        return reachableComputerNodes[0];
     }
 
     handleContinuousFlow(deltaTime: number): void {
@@ -800,15 +847,38 @@ export class Game {
             }
 
             if (node.owner === 'computer') {
-                if (!this.computerCanAct || node.units <= 10) return;
                 if (!(cfg.COMPUTER_UNIT_DISPATCH_SPEED > 0)) return;
 
-                const targetNode = this.findTargetNode(node);
-                if (!targetNode || this.isPathBlocked(node, targetNode)) return;
-                if (node.destination !== targetNode) {
+                const strategyState = this.getComputerStrategyState(node);
+                strategyState.reevaluationSeconds = Math.max(
+                    0,
+                    strategyState.reevaluationSeconds - deltaTime,
+                );
+
+                if (
+                    node.destination &&
+                    this.isPathBlocked(node, node.destination)
+                ) {
+                    node.destination = null;
                     node.dispatchTimerSeconds = 0;
+                    strategyState.reevaluationSeconds = 0;
                 }
-                node.destination = targetNode;
+
+                if (strategyState.reevaluationSeconds <= 0) {
+                    const nextDestination = this.pickComputerDestination(node);
+                    if (
+                        nextDestination &&
+                        nextDestination !== node.destination
+                    ) {
+                        node.destination = nextDestination;
+                        node.dispatchTimerSeconds = 0;
+                    }
+                    strategyState.reevaluationSeconds =
+                        cfg.COMPUTER_STRATEGY_REEVALUATION_SECONDS;
+                }
+
+                if (!node.destination) return;
+                if (!this.computerCanAct || node.units <= 10) return;
 
                 node.dispatchTimerSeconds += deltaTime;
                 while (true) {
@@ -817,11 +887,6 @@ export class Game {
                         !node.destination ||
                         node.units <= 10
                     ) {
-                        return;
-                    }
-                    if (this.isPathBlocked(node, node.destination)) {
-                        node.destination = null;
-                        node.dispatchTimerSeconds = 0;
                         return;
                     }
 
@@ -841,24 +906,6 @@ export class Game {
                 }
             }
         });
-    }
-
-    findTargetNode(node: Node): Node | null {
-        let nearestEnemy: Node | null = null;
-        let minDistance = Infinity;
-        this.nodes.forEach((potentialTarget) => {
-            if (potentialTarget.owner !== node.owner) {
-                const distance = Math.sqrt(
-                    Math.pow(potentialTarget.x - node.x, 2) +
-                        Math.pow(potentialTarget.y - node.y, 2),
-                );
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    nearestEnemy = potentialTarget;
-                }
-            }
-        });
-        return nearestEnemy;
     }
 
     isPathBlocked(node1: Node, node2: Node): boolean {
